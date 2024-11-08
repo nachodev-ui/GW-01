@@ -97,6 +97,32 @@ declare interface PaymentProps {
   rideTime: number
 }
 
+// src/stores/userStore.ts
+
+declare interface UserStore {
+  user: any | null // Puedes cambiar 'any' por un tipo más específico si lo necesitas
+  tipoUsuario: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  photoURL: string
+
+  // Funciones para actualizar los datos
+  fetchUserData: () => Promise<void>
+  updateProfile: (updatedData: {
+    firstName: string
+    lastName: string
+    phone: string
+  }) => Promise<void>
+  becomeProvider: () => Promise<void>
+
+  // Funciones para actualizar individualmente
+  setFirstName: (firstName: string) => void
+  setLastName: (lastName: string) => void
+  setPhone: (phone: string) => void
+}
+
 declare interface LocationStore {
   userLatitude: number | null
   userLongitude: number | null

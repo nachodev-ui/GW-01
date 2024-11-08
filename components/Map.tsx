@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react"
 import { ActivityIndicator, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
 import MapViewDirections from "react-native-maps-directions"
-import { auth } from "../firebaseConfig" // Asegúrate de configurar auth y db correctamente
+import { auth } from "../firebaseConfig"
 import {
   doc,
   getDoc,
@@ -11,7 +11,7 @@ import {
   where,
   getDocs,
 } from "firebase/firestore"
-import { db } from "../firebaseConfig" // Ajusta la ruta si es necesario
+import { db } from "../firebaseConfig"
 import * as Location from "expo-location"
 import { router } from "expo-router"
 

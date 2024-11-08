@@ -44,7 +44,7 @@ const Rides = () => {
         ListHeaderComponent={
           <>
             <Text className="text-2xl font-JakartaBold my-5">
-              Todos tus pedidos
+              Historial de pedidos
             </Text>
           </>
         }
