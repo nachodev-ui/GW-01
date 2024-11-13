@@ -3,7 +3,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
   collection,
 } from "firebase/firestore"
 import { auth, db } from "@/firebaseConfig"
@@ -32,9 +31,9 @@ export const getUserDataFromDB = async () => {
 
 // Actualizar los datos del usuario en Firestore
 export const updateUserDataInDB = async (
-  firstName: string,
-  lastName: string,
-  phone: string
+  firstName?: string,
+  lastName?: string,
+  phone?: string
 ) => {
   const user = auth.currentUser
 
@@ -42,28 +41,33 @@ export const updateUserDataInDB = async (
     const userProfileRef = doc(db, "userProfiles", user.uid)
 
     try {
-      await setDoc(
-        userProfileRef,
-        {
-          firstName,
-          lastName,
-          phone,
-        },
-        { merge: true }
-      )
+      // Solo actualiza los campos que no sean undefined
+      const updateData: any = {}
+      if (firstName !== undefined) updateData.firstName = firstName
+      if (lastName !== undefined) updateData.lastName = lastName
+      if (phone !== undefined) updateData.phone = phone
+
+      await setDoc(userProfileRef, updateData, { merge: true })
 
       // Actualizar información en Firebase Authentication
-      await updateProfile(user, {
-        displayName: `${firstName} ${lastName}`,
-      })
+      if (firstName && lastName) {
+        await updateProfile(user, {
+          displayName: `${firstName} ${lastName}`,
+        })
+      }
     } catch (err: any) {
       console.error("Error updating user data:", err)
     }
   }
 }
 
-// Actualizar el tipo de usuario (por ejemplo, "proveedor")
-export const updateUserTypeInDB = async (p0: string) => {
+export const updateUserTypeInDB = async (providerData: {
+  patente: string
+  distribuidora: string
+  direccion: string
+  telefonoCelular?: string
+  telefonoFijo?: string
+}) => {
   const user = auth.currentUser
 
   if (user) {
@@ -78,6 +82,7 @@ export const updateUserTypeInDB = async (p0: string) => {
         userProfileRef,
         {
           tipoUsuario: "proveedor",
+          ...providerData,
         },
         { merge: true }
       )
@@ -92,6 +97,8 @@ export const updateUserTypeInDB = async (p0: string) => {
           },
         ],
       })
-    } catch (err: any) {}
+    } catch (err: any) {
+      console.error("Error updating user type:", err)
+    }
   }
 }

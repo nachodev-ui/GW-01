@@ -5,7 +5,7 @@ import {
   updateUserTypeInDB,
 } from "@/lib/firebase"
 
-import { DriverStore, UserStore, LocationStore, MarkerData } from "@/types/type"
+import { DriverStore, UserStore, MarkerData, LocationState } from "@/types/type"
 
 export const useUserStore = create<UserStore>((set) => ({
   user: null,
@@ -19,9 +19,10 @@ export const useUserStore = create<UserStore>((set) => ({
   // Función para cargar los datos del usuario
   fetchUserData: async () => {
     const userData = await getUserDataFromDB() // Reemplaza con tu lógica real
+
     if (userData) {
       set({
-        user: userData,
+        user: userData as UserStore["user"],
         tipoUsuario: userData.tipoUsuario,
         firstName: userData.firstName,
         lastName: userData.lastName,
@@ -33,12 +34,14 @@ export const useUserStore = create<UserStore>((set) => ({
   },
 
   // Función para actualizar el perfil del usuario
-  updateProfile: async (updatedData) => {
-    await updateUserDataInDB(
-      updatedData.firstName,
-      updatedData.lastName,
-      updatedData.phone
-    ) // Actualiza en la base de datos
+  updateProfile: async (updatedData: {
+    firstName?: string
+    lastName?: string
+    phone?: string
+  }) => {
+    const { firstName, lastName, phone } = updatedData
+
+    await updateUserDataInDB(firstName ?? "", lastName ?? "", phone ?? "")
     set((state) => ({
       ...state,
       ...updatedData,
@@ -46,9 +49,24 @@ export const useUserStore = create<UserStore>((set) => ({
   },
 
   // Función para cambiar el tipo de usuario a proveedor
-  becomeProvider: async () => {
-    await updateUserTypeInDB("proveedor") // Actualiza el tipo de usuario en la base de datos
-    set({ tipoUsuario: "proveedor" })
+  addProviderFields: async (providerData: {
+    patente: string
+    distribuidora: string
+    direccion: string
+    telefonoCelular?: string
+    telefonoFijo?: string
+  }) => {
+    if (
+      !providerData.patente ||
+      !providerData.distribuidora ||
+      !providerData.direccion
+    ) {
+      throw new Error(
+        "Debes proporcionar la patente, tu distribuidora y su dirección"
+      )
+    }
+
+    await updateUserTypeInDB(providerData) // Actualiza en la base de datos
   },
 
   // Funciones para actualizar los datos individualmente
@@ -57,52 +75,11 @@ export const useUserStore = create<UserStore>((set) => ({
   setPhone: (phone) => set({ phone }),
 }))
 
-export const useLocationStore = create<LocationStore>((set) => ({
-  userLatitude: null,
-  userLongitude: null,
-  userAddress: null,
-  destinationLatitude: null,
-  destinationLongitude: null,
-  destinationAddress: null,
-  setUserLocation: ({
-    latitude,
-    longitude,
-    address,
-  }: {
-    latitude: number
-    longitude: number
-    address: string
-  }) => {
-    set(() => ({
-      userLatitude: latitude,
-      userLongitude: longitude,
-      userAddress: address,
-    }))
-
-    // if driver is selected and now new location is set, clear the selected driver
-    const { selectedDriver, clearSelectedDriver } = useDriverStore.getState()
-    if (selectedDriver) clearSelectedDriver()
-  },
-
-  setDestinationLocation: ({
-    latitude,
-    longitude,
-    address,
-  }: {
-    latitude: number
-    longitude: number
-    address: string
-  }) => {
-    set(() => ({
-      destinationLatitude: latitude,
-      destinationLongitude: longitude,
-      destinationAddress: address,
-    }))
-
-    // if driver is selected and now new location is set, clear the selected driver
-    const { selectedDriver, clearSelectedDriver } = useDriverStore.getState()
-    if (selectedDriver) clearSelectedDriver()
-  },
+export const useLocationStore = create<LocationState>((set) => ({
+  userLocation: null, // Valor inicial
+  providersLocations: [], // Lista inicial vacía de proveedores
+  setUserLocation: (location) => set({ userLocation: location }), // Actualiza la ubicación del usuario
+  setProvidersLocations: (locations) => set({ providersLocations: locations }), // Actualiza las ubicaciones de los proveedores
 }))
 
 export const useDriverStore = create<DriverStore>((set) => ({

@@ -9,9 +9,8 @@ import InputField from "@/components/InputField"
 import OAuth from "@/components/OAuth"
 import { icons, images } from "@/constants"
 
-import { auth } from "../../firebaseConfig" // Ajusta la ruta si es necesario
+import { auth } from "../../firebaseConfig"
 import { signInWithEmailAndPassword } from "firebase/auth"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const SignIn = () => {
   const emailInputRef = useRef<TextInput>(null)
@@ -33,9 +32,6 @@ const SignIn = () => {
       const user = userCredential.user
 
       if (user) {
-        await AsyncStorage.setItem("user", JSON.stringify(user))
-
-        // Redirige al usuario a la página de inicio
         router.push("/(root)/(tabs)/home")
       }
     } catch (err: any) {

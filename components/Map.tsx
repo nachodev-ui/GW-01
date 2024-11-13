@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react"
 import { ActivityIndicator, Text, View } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
 import MapViewDirections from "react-native-maps-directions"
-import { auth } from "../firebaseConfig"
+
+import { auth, db } from "@/firebaseConfig"
 import {
   doc,
   getDoc,
@@ -11,51 +12,19 @@ import {
   where,
   getDocs,
 } from "firebase/firestore"
-import { db } from "../firebaseConfig"
+
 import * as Location from "expo-location"
 import { router } from "expo-router"
+
+import { useLocationStore } from "@/store"
 
 // const directionsAPI = process.env.EXPO_PUBLIC_DIRECTIONS_API_KEY
 
 const Map = () => {
-  const [userLocations, setUserLocations] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [providerLocations, setProviderLocations] = useState<
-    { id: string; latitude: number; longitude: number }[]
-  >([])
-  const [error, setError] = useState("")
-  const [selectedProviderLocation, setSelectedProviderLocation] = useState<{
-    id: string
-    latitude: number
-    longitude: number
-  } | null>(null)
-
-  const [userLatitude, setUserLatitude] = useState<number | null>(null)
-  const [userLongitude, setUserLongitude] = useState<number | null>(null)
-
-  // Obtener ubicación inicial
-  const getCurrentLocation = async () => {
-    try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      })
-      const { latitude, longitude } = location.coords
-      setUserLatitude(latitude)
-      setUserLongitude(longitude)
-      setLoading(false)
-    } catch (error) {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    getCurrentLocation()
-  }, [])
-
   // Obtener el usuario actual
   const user = auth.currentUser
 
-  // Verificar si hay un usuario autenticado
+  // Va antes de toda la lógica de renderizado para evitar errores
   if (!user) {
     return (
       <View className="flex justify-between items-center w-full">
@@ -63,8 +32,55 @@ const Map = () => {
       </View>
     )
   }
+
+  const {
+    userLocation,
+    providersLocations,
+    setUserLocation,
+    setProvidersLocations,
+  } = useLocationStore()
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const [selectedProviderLocation, setSelectedProviderLocation] = useState<{
+    id: string
+    latitude: number
+    longitude: number
+  } | null>(null)
+
   const currentUserId = user.uid // ID del usuario actual
   const [currentUserRole, setCurrentUserRole] = useState("") // Inicializar rol
+
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== "granted") {
+        setError(
+          "Permiso de ubicación denegado. Activa los permisos en la configuración."
+        )
+        setLoading(false)
+        return
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      })
+
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      })
+    } catch (err: any) {
+      setError("Error al obtener la ubicación: " + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    requestLocationPermission()
+  }, [])
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -80,8 +96,8 @@ const Map = () => {
         } else {
           setError("Perfil de usuario no encontrado")
         }
-      } catch (err) {
-        if (err instanceof Error) {
+      } catch (err: any) {
+        if (err) {
           setError(err.message)
         } else {
           setError("An unknown error occurred")
@@ -101,7 +117,8 @@ const Map = () => {
       const providerSnapshot = await getDocs(providerQuery)
 
       // Crear un arreglo para almacenar las ubicaciones de los proveedores
-      const locations = []
+      const locations: { id: string; latitude: number; longitude: number }[] =
+        []
 
       // Paso 2: Iterar sobre los usuarios proveedores encontrados
       for (const providerDoc of providerSnapshot.docs) {
@@ -126,13 +143,10 @@ const Map = () => {
         }
       }
       // Actualizar el estado con las ubicaciones de los proveedores
-      setProviderLocations(locations)
-    } catch (error) {
-      setError("Error al cargar las ubicaciones de los proveedores: " + error)
-      console.error(
-        "Error al cargar las ubicaciones de los proveedores: ",
-        error
-      )
+      setProvidersLocations(locations)
+    } catch (err: any) {
+      setError("Error al cargar las ubicaciones de los proveedores: " + err)
+      console.error("Error al cargar las ubicaciones de los proveedores: ", err)
     }
   }
 
@@ -167,12 +181,14 @@ const Map = () => {
       pathname: "/(root)/find-ride",
       params: {
         providerUid,
+        destionationLatitude: selectedProviderLocation?.latitude,
+        destinationLongitude: selectedProviderLocation?.longitude,
       },
     })
   }
 
   // Verificar que las coordenadas del usuario estén disponibles
-  if (!userLatitude || !userLongitude) {
+  if (!userLocation) {
     return (
       <View className="flex justify-between items-center w-full">
         <Text>Esperando ubicación del usuario...</Text>
@@ -190,23 +206,23 @@ const Map = () => {
       showsUserLocation={true}
       userInterfaceStyle="light"
       region={{
-        latitude: userLatitude,
-        longitude: userLongitude,
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
         latitudeDelta: 0.02,
         longitudeDelta: 0.02,
       }}
     >
-      {/* Agregar marcador para la ubicación del usuario */}
-      {userLatitude && userLongitude && (
-        <Marker
-          coordinate={{ latitude: userLatitude, longitude: userLongitude }}
-          title="Mi ubicación"
-          pinColor="blue"
-        />
-      )}
+      <Marker
+        coordinate={{
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+        }}
+        title="Mi ubicación"
+        pinColor="blue"
+      />
 
       {/* Agregar marcadores para los proveedores */}
-      {providerLocations.map((location) => (
+      {providersLocations.map((location) => (
         <Marker
           key={location.id}
           coordinate={{
@@ -223,17 +239,21 @@ const Map = () => {
           }
         />
       ))}
+
       {/* Agregar ruta a la ubicación del proveedor si está seleccionada */}
       {selectedProviderLocation && (
         <MapViewDirections
-          origin={{ latitude: userLatitude, longitude: userLongitude }}
+          origin={{
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          }}
           destination={{
             latitude: selectedProviderLocation.latitude,
             longitude: selectedProviderLocation.longitude,
           }}
-          apikey="AIzaSyAHFQg7qjZtUG8KmwHy-yJbEczLKYANTy0"
+          apikey="AIzaSyD7_q5tJZJbl8NczuY6KOC288uzeBEF7No"
           strokeWidth={3}
-          strokeColor="hotpink"
+          strokeColor="green"
         />
       )}
     </MapView>

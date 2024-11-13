@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react"
 import { Redirect } from "expo-router"
 import { onAuthStateChanged, getAuth } from "firebase/auth"
-import app from "../firebaseConfig" // Asegúrate de que esta ruta sea correcta
+import app from "@/firebaseConfig" // Asegúrate de que esta ruta sea correcta
 
 const Page = () => {
   const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null)

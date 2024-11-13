@@ -5,39 +5,36 @@ import { useEffect, useState } from "react"
 import RideLayout from "@/components/RideLayout"
 import { db } from "@/firebaseConfig"
 import { doc, getDoc } from "firebase/firestore"
+import { Product } from "@/types/type" // Se asume que moviste la interfaz a una carpeta de tipos
 
 const FindRide = () => {
   const { providerUid } = useLocalSearchParams() as { providerUid: string }
-  interface Product {
-    nombre: string
-    tipo: string
-    cantidad: number
-    precio: number
-  }
 
   const [providerProducts, setProviderProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true) // Estado para controlar la carga
+  const [loading, setLoading] = useState(true)
 
-  // Función para obtener los datos de los productos del proveedor
   const fetchProviderData = async () => {
     try {
       const providerDocRef = doc(db, "providerProducts", providerUid)
       const providerDoc = await getDoc(providerDocRef)
 
       if (providerDoc.exists()) {
-        const products = providerDoc.data().productos // Asegúrate de que los productos estén en el campo `products`
-        setProviderProducts(products)
-        console.log("Provider Products:", products)
+        const products = providerDoc.data()?.productos || []
+        if (Array.isArray(products)) {
+          setProviderProducts(products)
+        } else {
+          console.warn("El campo `productos` no es un array.")
+        }
       } else {
-        console.log("No se encontró el documento del proveedor.")
+        console.warn("No se encontró el documento del proveedor.")
       }
     } catch (error) {
       console.error("Error al obtener los datos del proveedor: ", error)
     } finally {
-      setLoading(false) // Finaliza la carga después de obtener los datos
+      setLoading(false)
     }
   }
-  // Llama a la función fetchProviderData cuando se monta el componente
+
   useEffect(() => {
     fetchProviderData()
   }, [])
@@ -46,14 +43,17 @@ const FindRide = () => {
     <RideLayout title="Ride">
       <View className="my-3">
         <Text className="text-lg font-JakartaSemiBold mb-3">Productos</Text>
-        {loading ? ( // Muestra el indicador de carga mientras `loading` es `true`
+        {loading ? (
           <View className="flex items-center justify-center">
             <ActivityIndicator size="large" color="#0000ff" />
             <Text>Cargando productos...</Text>
           </View>
         ) : providerProducts.length > 0 ? (
-          providerProducts.map((product, index) => (
-            <View key={index} className="my-2 p-3 bg-gray-100 rounded-md">
+          providerProducts.map((product) => (
+            <View
+              key={product.nombre} // Usa un identificador único en lugar del índice
+              className="my-2 p-3 bg-gray-100 rounded-md"
+            >
               <Text>Producto: {product.nombre}</Text>
               <Text>Tipo: {product.tipo}</Text>
               <Text>Cantidad: {product.cantidad}</Text>

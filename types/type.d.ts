@@ -1,4 +1,13 @@
+import { create } from "zustand"
+import { User } from "firebase/auth"
 import { TextInputProps, TouchableOpacityProps } from "react-native"
+
+declare interface Product {
+  nombre: string
+  tipo: string
+  cantidad: number
+  precio: number
+}
 
 declare interface Driver {
   id: number
@@ -62,6 +71,17 @@ declare interface ButtonProps extends TouchableOpacityProps {
   className?: string
 }
 
+declare interface ProviderFormProps {
+  onSubmit: (providerData: {
+    patente: string
+    distribuidora: string
+    direccion: string
+    telefonoCelular?: string
+    telefonoFijo?: string
+  }) => void
+  onCancel: () => void
+}
+
 declare interface GoogleInputProps {
   icon?: string
   initialLocation?: string
@@ -97,10 +117,27 @@ declare interface PaymentProps {
   rideTime: number
 }
 
-// src/stores/userStore.ts
+declare interface UserProfile {
+  user: any | null
+  uid: string
+  tipoUsuario: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  photoURL: string
+}
+
+declare interface ProviderProfile extends UserProfile {
+  patente: string
+  distribuidora: string
+  direccion: string
+  telefonoCelular?: string
+  telefonoFijo?: string
+}
 
 declare interface UserStore {
-  user: any | null // Puedes cambiar 'any' por un tipo más específico si lo necesitas
+  user: UserProfile | null
   tipoUsuario: string
   firstName: string
   lastName: string
@@ -108,46 +145,35 @@ declare interface UserStore {
   phone: string
   photoURL: string
 
-  // Funciones para actualizar los datos
   fetchUserData: () => Promise<void>
-  updateProfile: (updatedData: {
-    firstName: string
-    lastName: string
-    phone: string
-  }) => Promise<void>
-  becomeProvider: () => Promise<void>
 
-  // Funciones para actualizar individualmente
+  updateProfile: (updatedData: {
+    firstName: string | undefined
+    lastName: string | undefined
+    phone: string | undefined
+  }) => void
+
+  addProviderFields: (providerData: {
+    patente: string
+    distribuidora: string
+    direccion: string
+    telefonoCelular?: string
+    telefonoFijo?: string
+  }) => void
+
+  // Individual setters
   setFirstName: (firstName: string) => void
   setLastName: (lastName: string) => void
   setPhone: (phone: string) => void
 }
 
-declare interface LocationStore {
-  userLatitude: number | null
-  userLongitude: number | null
-  userAddress: string | null
-  destinationLatitude: number | null
-  destinationLongitude: number | null
-  destinationAddress: string | null
-  setUserLocation: ({
-    latitude,
-    longitude,
-    address,
-  }: {
-    latitude: number
-    longitude: number
-    address: string
-  }) => void
-  setDestinationLocation: ({
-    latitude,
-    longitude,
-    address,
-  }: {
-    latitude: number
-    longitude: number
-    address: string
-  }) => void
+declare interface LocationState {
+  userLocation: { latitude: number; longitude: number } | null // Ubicación del usuario
+  providersLocations: Array<{ id: string; latitude: number; longitude: number }> // Ubicaciones de proveedores
+  setUserLocation: (location: { latitude: number; longitude: number }) => void // Método para actualizar userLocation
+  setProvidersLocations: (
+    locations: Array<{ id: string; latitude: number; longitude: number }>
+  ) => void // Método para actualizar providersLocations
 }
 
 declare interface DriverStore {

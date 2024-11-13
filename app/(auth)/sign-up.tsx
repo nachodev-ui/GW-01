@@ -1,18 +1,20 @@
 import { useState, useRef } from "react"
-import { Alert, Image, Text, View } from "react-native"
+import { Alert, Image, Text, View, TextInput } from "react-native"
 import { ReactNativeModal } from "react-native-modal"
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
-import { TextInput } from "react-native-gesture-handler"
 import { Link, router } from "expo-router"
 
 import CustomButton from "@/components/CustomButton"
 import InputField from "@/components/InputField"
 import OAuth from "@/components/OAuth"
+
 import { icons, images } from "@/constants"
-import { fetchAPI } from "@/lib/fetch"
-import { sendEmailVerification } from "firebase/auth" // Asegúrate de tener importado esto
-import { auth } from "../../firebaseConfig" // Ajusta la ruta si es necesario
-import { createUserWithEmailAndPassword } from "firebase/auth"
+
+import { auth } from "../../firebaseConfig"
+import {
+  sendEmailVerification,
+  createUserWithEmailAndPassword,
+} from "firebase/auth"
 import { getFirestore, doc, setDoc } from "firebase/firestore"
 
 const SignUp = () => {

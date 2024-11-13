@@ -2,19 +2,28 @@ import { Tabs } from "expo-router"
 import { Image, ImageSourcePropType, View } from "react-native"
 
 import { icons } from "@/constants"
+import { auth, db } from "@/firebaseConfig"
+import { doc, getDoc } from "firebase/firestore"
+import { useEffect, useState } from "react"
 
 const TabIcon = ({
   source,
   focused,
+  role,
 }: {
   source: ImageSourcePropType
   focused: boolean
+  role: string | null
 }) => (
   <View
     className={`flex flex-row justify-center items-center rounded-full ${focused ? "bg-general-300" : ""}`}
   >
     <View
-      className={`rounded-full w-12 h-12 items-center justify-center ${focused ? "bg-[#77BEEA]" : ""}`}
+      className={`rounded-full w-12 h-12 items-center justify-center ${
+        focused
+          ? { usuario: "bg-[#77BEEA]", proveedor: "bg-success-300" }[role!]
+          : ""
+      }`}
     >
       <Image
         source={source}
@@ -27,6 +36,20 @@ const TabIcon = ({
 )
 
 export default function Layout() {
+  const [role, setRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, "userProfiles", user.uid))
+        const userData = userDoc.data()
+        setRole(userData?.tipoUsuario)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
+
   return (
     <Tabs
       initialRouteName="index"
@@ -35,7 +58,7 @@ export default function Layout() {
         tabBarInactiveTintColor: "white",
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: "#333333",
+          backgroundColor: { usuario: "#333333", proveedor: "#333333" }[role!],
           borderRadius: 50,
           paddingBottom: 0, // ios only
           overflow: "hidden",
@@ -56,7 +79,7 @@ export default function Layout() {
           title: "Home",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.home} focused={focused} />
+            <TabIcon source={icons.home} focused={focused} role={role} />
           ),
         }}
       />
@@ -66,7 +89,7 @@ export default function Layout() {
           title: "Rides",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.list} focused={focused} />
+            <TabIcon source={icons.list} focused={focused} role={role} />
           ),
         }}
       />
@@ -76,7 +99,7 @@ export default function Layout() {
           title: "Chat",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.chat} focused={focused} />
+            <TabIcon source={icons.chat} focused={focused} role={role} />
           ),
         }}
       />
@@ -86,7 +109,7 @@ export default function Layout() {
           title: "Profile",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.profile} focused={focused} />
+            <TabIcon source={icons.profile} focused={focused} role={role} />
           ),
         }}
       />

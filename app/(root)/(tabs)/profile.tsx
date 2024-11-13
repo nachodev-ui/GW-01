@@ -1,9 +1,13 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Image, ScrollView, Text, View, Button, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import InputField from "@/components/InputField" // Ajusta la ruta si es necesario
+import { ReactNativeModal } from "react-native-modal"
+
+import InputField from "@/components/InputField"
+import ProviderForm from "@/components/ProviderForm"
 
 import { useUserStore } from "@/store/index"
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
 
 const Profile = () => {
   const {
@@ -15,19 +19,40 @@ const Profile = () => {
     photoURL,
     fetchUserData,
     updateProfile,
-    becomeProvider,
+    addProviderFields,
     setFirstName,
     setLastName,
     setPhone,
   } = useUserStore()
 
+  const [isProviderFormVisible, setIsProviderFormVisible] = useState(false)
+
   useEffect(() => {
     fetchUserData()
   }, [tipoUsuario])
 
-  // Función para guardar el perfil en Firestore
+  const handleOpenProviderForm = () => setIsProviderFormVisible(true)
+
+  const handleCloseProviderForm = () => setIsProviderFormVisible(false)
+
+  const handleSubmitProviderForm = async (providerData: {
+    patente: string
+    distribuidora: string
+    direccion: string
+    telefonoCelular?: string
+    telefonoFijo?: string
+  }) => {
+    console.log("Datos recibidos en Profile:", providerData)
+    addProviderFields(providerData) // Asegúrate de que esta función esté correctamente definida
+    setIsProviderFormVisible(false)
+    Alert.alert(
+      "Cambio de tipo de usuario",
+      "Has sido registrado como proveedor y tus productos han sido añadidos."
+    )
+  }
+
   const handleSaveProfile = async () => {
-    await updateProfile({
+    updateProfile({
       firstName,
       lastName,
       phone,
@@ -35,15 +60,6 @@ const Profile = () => {
     Alert.alert(
       "Perfil guardado",
       "Los datos de tu perfil se han guardado correctamente."
-    )
-  }
-
-  // Función para cambiar el tipo de usuario a proveedor
-  const handleBecomeProvider = async () => {
-    await becomeProvider()
-    Alert.alert(
-      "Cambio de tipo de usuario",
-      "Has sido registrado como proveedor y tus productos han sido añadidos."
     )
   }
 
@@ -108,9 +124,30 @@ const Profile = () => {
         {tipoUsuario !== "proveedor" && (
           <Button
             title="Convertirme en proveedor"
-            onPress={handleBecomeProvider}
+            onPress={handleOpenProviderForm}
           />
         )}
+
+        <ReactNativeModal
+          isVisible={isProviderFormVisible}
+          onBackdropPress={handleCloseProviderForm}
+          backdropOpacity={0.5}
+        >
+          <KeyboardAwareScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+            }}
+            enableOnAndroid={true}
+            keyboardOpeningTime={0}
+            keyboardShouldPersistTaps="handled"
+          >
+            <ProviderForm
+              onSubmit={handleSubmitProviderForm}
+              onCancel={handleCloseProviderForm}
+            />
+          </KeyboardAwareScrollView>
+        </ReactNativeModal>
       </ScrollView>
     </SafeAreaView>
   )

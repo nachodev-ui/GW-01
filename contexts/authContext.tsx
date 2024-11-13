@@ -1,5 +1,3 @@
-// /contexts/authContext.tsx
-
 import {
   createContext,
   PropsWithChildren,
@@ -13,7 +11,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 } from "firebase/auth"
-import { auth } from "../firebaseConfig"
+import { auth } from "@/firebaseConfig"
 
 const initialState = {
   isAuthenticated: undefined,

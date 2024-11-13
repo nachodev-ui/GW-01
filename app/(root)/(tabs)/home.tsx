@@ -14,18 +14,20 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import GoogleTextInput from "@/components/GoogleTextInput"
 import Map from "@/components/Map"
 import RideCard from "@/components/RideCard"
+
+import { useLocationStore } from "@/store"
 import { icons, images } from "@/constants"
 import { useFetch } from "@/lib/fetch"
-import { useLocationStore } from "@/store"
 import { Ride } from "@/types/type"
 
 import { db } from "../../../firebaseConfig" // Ajusta la ruta si es necesario
 import { getAuth, User } from "firebase/auth" // Importa Firebase Authentication
-import { setDoc, doc, collection, getDocs } from "firebase/firestore"
+import { setDoc, doc } from "firebase/firestore"
 
 const Home = () => {
   const { setUserLocation, setDestinationLocation } = useLocationStore()
   const [user, setUser] = useState<User | null>(null) // Estado para almacenar el usuario
+  const [asyncUser, setAsyncUser] = useState<string | null>(null) // Estado para resctar el usuario en AsyncStorage
   const [hasPermission, setHasPermission] = useState<boolean>(false)
 
   // Obtener datos de paseos recientes
@@ -33,7 +35,7 @@ const Home = () => {
     data: recentRides,
     loading,
     error,
-  } = useFetch<Ride[]>(`/(api)/ride/${user?.uid}`) // Asegúrate de usar uid para la consulta
+  } = useFetch<Ride[]>(`/(api)/ride/99`)
 
   useEffect(() => {
     ;(async () => {
@@ -95,7 +97,14 @@ const Home = () => {
     address: string
   }) => {
     setDestinationLocation(location)
-    router.push("/(root)/find-ride")
+    router.push({
+      pathname: "/(root)/find-ride",
+      params: {
+        providerLatitude: location.latitude,
+        providerLongitude: location.longitude,
+        providerAddress: location.address,
+      },
+    })
   }
 
   const handleSignOut = () => {
@@ -137,7 +146,8 @@ const Home = () => {
           <>
             <View className="flex flex-row items-center justify-between my-5">
               <Text className="text-xldis font-JakartaExtraBold">
-                Hola, {user?.displayName || "Usuario"} 👋
+                Hola, {user?.displayName || "Usuario"}
+                👋
               </Text>
               <TouchableOpacity
                 onPress={handleSignOut}
