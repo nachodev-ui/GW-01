@@ -3,12 +3,22 @@ import { Text, View, ActivityIndicator } from "react-native"
 import { useEffect, useState } from "react"
 
 import RideLayout from "@/components/RideLayout"
+
 import { db } from "@/firebaseConfig"
 import { doc, getDoc } from "firebase/firestore"
-import { Product } from "@/types/type" // Se asume que moviste la interfaz a una carpeta de tipos
+
+import { useLocationStore } from "@/store"
+import { Product } from "@/types/type"
 
 const FindRide = () => {
-  const { providerUid } = useLocalSearchParams() as { providerUid: string }
+  const { providerUid, destinationLatitude, destinationLongitude } =
+    useLocalSearchParams() as unknown as {
+      providerUid: string
+      destinationLatitude: number
+      destinationLongitude: number
+    }
+
+  const { setProvidersLocations } = useLocationStore()
 
   const [providerProducts, setProviderProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,31 +49,30 @@ const FindRide = () => {
     fetchProviderData()
   }, [])
 
+  useEffect(() => {
+    if (destinationLatitude && destinationLongitude) {
+      setProvidersLocations([
+        {
+          id: providerUid,
+          latitude: destinationLatitude,
+          longitude: destinationLongitude,
+        },
+      ])
+    }
+  }, [destinationLatitude, destinationLongitude])
+
   return (
-    <RideLayout title="Ride">
-      <View className="my-3">
-        <Text className="text-lg font-JakartaSemiBold mb-3">Productos</Text>
-        {loading ? (
-          <View className="flex items-center justify-center">
-            <ActivityIndicator size="large" color="#0000ff" />
-            <Text>Cargando productos...</Text>
-          </View>
-        ) : providerProducts.length > 0 ? (
-          providerProducts.map((product) => (
-            <View
-              key={product.nombre} // Usa un identificador único en lugar del índice
-              className="my-2 p-3 bg-gray-100 rounded-md"
-            >
-              <Text>Producto: {product.nombre}</Text>
-              <Text>Tipo: {product.tipo}</Text>
-              <Text>Cantidad: {product.cantidad}</Text>
-              <Text>Precio: ${product.precio}</Text>
-            </View>
-          ))
-        ) : (
-          <Text>No hay productos disponibles para este proveedor.</Text>
-        )}
-      </View>
+    <RideLayout title="Encontrar un paseo">
+      {loading ? (
+        <ActivityIndicator />
+      ) : (
+        <View>
+          <Text>Productos del proveedor:</Text>
+          {providerProducts.map((product) => (
+            <Text key={product.nombre}>{product.nombre}</Text>
+          ))}
+        </View>
+      )}
     </RideLayout>
   )
 }

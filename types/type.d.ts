@@ -88,13 +88,13 @@ declare interface GoogleInputProps {
   containerStyle?: string
   textInputBackgroundColor?: string
   handlePress: ({
+    id,
     latitude,
     longitude,
-    address,
   }: {
+    id: string
     latitude: number
     longitude: number
-    address: string
   }) => void
 }
 
@@ -168,12 +168,22 @@ declare interface UserStore {
 }
 
 declare interface LocationState {
-  userLocation: { latitude: number; longitude: number } | null // Ubicación del usuario
-  providersLocations: Array<{ id: string; latitude: number; longitude: number }> // Ubicaciones de proveedores
-  setUserLocation: (location: { latitude: number; longitude: number }) => void // Método para actualizar userLocation
+  userLocation: { latitude: number; longitude: number } | null
+  providersLocations: Array<{ id: string; latitude: number; longitude: number }>
+  selectedProviderLocation: {
+    id: string
+    latitude: number
+    longitude: number
+  } | null
+  setUserLocation: (location: { latitude: number; longitude: number }) => void
   setProvidersLocations: (
     locations: Array<{ id: string; latitude: number; longitude: number }>
-  ) => void // Método para actualizar providersLocations
+  ) => void
+  setSelectedProviderLocation: (location: {
+    id: string
+    latitude: number
+    longitude: number
+  }) => void
 }
 
 declare interface DriverStore {

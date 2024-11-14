@@ -76,10 +76,13 @@ export const useUserStore = create<UserStore>((set) => ({
 }))
 
 export const useLocationStore = create<LocationState>((set) => ({
-  userLocation: null, // Valor inicial
-  providersLocations: [], // Lista inicial vacía de proveedores
-  setUserLocation: (location) => set({ userLocation: location }), // Actualiza la ubicación del usuario
-  setProvidersLocations: (locations) => set({ providersLocations: locations }), // Actualiza las ubicaciones de los proveedores
+  userLocation: null,
+  providersLocations: [],
+  selectedProviderLocation: null,
+  setUserLocation: (location) => set({ userLocation: location }),
+  setProvidersLocations: (locations) => set({ providersLocations: locations }),
+  setSelectedProviderLocation: (location) =>
+    set({ selectedProviderLocation: location }),
 }))
 
 export const useDriverStore = create<DriverStore>((set) => ({
