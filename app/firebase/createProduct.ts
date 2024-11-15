@@ -1,19 +1,35 @@
-import { collection, addDoc } from "firebase/firestore"
-import { db } from "@/firebaseConfig"
+import { getFirestore, doc, setDoc, arrayUnion } from "firebase/firestore"
+import { getAuth } from "firebase/auth" // Para obtener el usuario autenticado
+import { Product } from "@/types/type" // Ajusta la ruta según tu proyecto
 
-import { Product } from "@/types/type"
+const db = getFirestore()
+const auth = getAuth()
 
-import { getCurrentUser } from "@/lib/firebase"
+export const createProduct = async (
+  product: Omit<Product, "id" | "userId">
+): Promise<void> => {
+  try {
+    const currentUser = auth.currentUser
+    if (!currentUser) {
+      throw new Error("El usuario no está autenticado.")
+    }
 
-export const createProduct = async (productData: Product) => {
-  const user = getCurrentUser()
-  if (!user) return
+    const providerProductsRef = doc(db, "providerProducts", currentUser.uid)
 
-  const productRef = collection(db, `users/${user.uid}/products`)
-  const product = await addDoc(productRef, {
-    ...productData,
-    createdAt: new Date(),
-  })
+    await setDoc(
+      providerProductsRef,
+      {
+        products: arrayUnion({
+          ...product,
+          nombre: product.marca + " - " + product.formato, // Ejemplo de concatenación para nombre
+        }),
+      },
+      { merge: true }
+    )
 
-  return product
+    console.log("Producto guardado exitosamente.")
+  } catch (error) {
+    console.error("Error al crear el producto:", error)
+    throw new Error("No se pudo guardar el producto.")
+  }
 }

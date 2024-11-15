@@ -278,7 +278,7 @@ const Home = () => {
             <>
               <View className="flex flex-row items-center justify-between my-5">
                 <Text className="text-xldis font-JakartaExtraBold">
-                  Hola, {user?.displayName || "Usuario"} 馃憢
+                  Hola, {user?.displayName || "Usuario"}
                 </Text>
                 <TouchableOpacity
                   onPress={handleSignOut}
@@ -288,7 +288,7 @@ const Home = () => {
                 </TouchableOpacity>
               </View>
               <Text className="text-xl font-JakartaBold mt-5 mb-3">
-                Tu ubicaci贸n actual
+                Tu ubicación actual
               </Text>
               <View className="flex flex-row items-center bg-transparent h-[300px]">
                 <Map />

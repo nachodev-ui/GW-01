@@ -7,7 +7,6 @@ declare interface Product {
   marca: "Abastible" | "Gasco" | "Lipigas"
   formato: "5kg" | "11kg" | "15kg" | "45kg"
   precio: number
-  imagen: string
   stock: number
 }
 
@@ -78,6 +77,7 @@ declare interface ProviderFormProps {
     patente: string
     distribuidora: string
     direccion: string
+    estado: string
     telefonoCelular?: string
     telefonoFijo?: string
   }) => void
@@ -160,6 +160,7 @@ declare interface UserStore {
     patente: string
     distribuidora: string
     direccion: string
+    estado: string
     telefonoCelular?: string
     telefonoFijo?: string
   }) => void

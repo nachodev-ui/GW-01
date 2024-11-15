@@ -76,6 +76,7 @@ export const updateUserTypeInDB = async (providerData: {
   patente: string
   distribuidora: string
   direccion: string
+  estado: "disponible"
   telefonoCelular?: string
   telefonoFijo?: string
 }) => {
@@ -97,17 +98,6 @@ export const updateUserTypeInDB = async (providerData: {
         },
         { merge: true }
       )
-
-      await setDoc(providerProductsRef, {
-        productos: [
-          {
-            nombre: "Gas de ejemplo",
-            tipo: "Gas",
-            cantidad: 100,
-            precio: 10000,
-          },
-        ],
-      })
     } catch (err: any) {
       console.error("Error updating user type:", err)
     }

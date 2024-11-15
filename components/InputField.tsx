@@ -1,3 +1,4 @@
+import { Ref, forwardRef } from "react"
 import {
   TextInput,
   View,
@@ -8,8 +9,6 @@ import {
   Keyboard,
   Platform,
 } from "react-native"
-
-import { Ref, forwardRef } from "react"
 
 import { InputFieldProps } from "@/types/type"
 

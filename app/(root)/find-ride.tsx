@@ -257,9 +257,9 @@ const FindRide = () => {
                   borderRadius: 8,
                 }}
               >
-                <Text>Producto: {product.nombre}</Text>
-                <Text>Tipo: {product.tipo}</Text>
-                <Text>Cantidad: {product.cantidad}</Text>
+                <Text>Marca de gas: {product.marca}</Text>
+                <Text>Formato del gas (KG): {product.formato}</Text>
+                <Text>Stock: {product.stock}</Text>
                 <Text>Precio: ${product.precio}</Text>
                 <Button
                   title="Comprar Producto"
@@ -268,7 +268,7 @@ const FindRide = () => {
                       console.log("Clic en Comprar Producto")
                       crearPedido(
                         { lat: destinationLatitude, lng: destinationLongitude },
-                        product.nombre
+                        product.marca
                       )
                     }
                   }}

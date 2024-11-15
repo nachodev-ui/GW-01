@@ -1,14 +1,12 @@
-import { router } from "expo-router"
 import { useEffect, useState } from "react"
 import {
   Image,
   ScrollView,
-  Text,
   View,
   Button,
   Alert,
-  TouchableOpacity,
   RefreshControl,
+  Text,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { ReactNativeModal } from "react-native-modal"
@@ -51,6 +49,7 @@ const Profile = () => {
     patente: string
     distribuidora: string
     direccion: string
+    estado: string
     telefonoCelular?: string
     telefonoFijo?: string
   }) => {
@@ -90,20 +89,8 @@ const Profile = () => {
           />
         }
       >
-        <View className="flex-row justify-between items-center">
-          <Text className="text-2xl font-JakartaBold my-5">Mi perfil</Text>
-          {/* Botón para redirigir al perfil de productos */}
-          {tipoUsuario === "proveedor" && (
-            <TouchableOpacity
-              onPress={() => router.push("/(root)/(tabs)/providerProducts")}
-              className="bg-primary-500 p-2 rounded-md"
-            >
-              <Text className="text-white">Ver productos</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
         <View className="flex items-center justify-center my-5">
+          <Text className="text-xl font-bold">Mi perfil</Text>
           <Image
             source={{
               uri: photoURL || "https://via.placeholder.com/110", // Imagen de placeholder si no hay fotoURL

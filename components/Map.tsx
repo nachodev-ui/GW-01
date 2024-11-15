@@ -12,19 +12,24 @@ import {
   getDocs,
   getDoc,
   DocumentData,
-  QueryDocumentSnapshot,
   CollectionReference,
-  DocumentReference,
   QuerySnapshot,
 } from "firebase/firestore"
 
 import * as Location from "expo-location"
 import { router } from "expo-router"
 
+import { getCurrentUser } from "@/lib/firebase"
 import { useLocationStore } from "@/store"
 
 const Map = () => {
-  const user = auth.currentUser
+  const user = getCurrentUser()
+
+  useEffect(() => {
+    if (!user) {
+      console.log("No hay usuario autenticado")
+    }
+  }, [])
 
   // Va antes de toda la lógica de renderizado para evitar errores
   if (!user) {
@@ -47,7 +52,7 @@ const Map = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  const currentUserId = user.uid // ID del usuario actual
+  const currentUserId = user?.uid // ID del usuario actual
   const [currentUserRole, setCurrentUserRole] = useState("") // Inicializar rol
 
   const requestLocationPermission = async () => {

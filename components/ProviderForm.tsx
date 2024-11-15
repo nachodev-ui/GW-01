@@ -8,6 +8,7 @@ const ProviderForm = ({ onSubmit, onCancel }: ProviderFormProps) => {
   const [patente, setPatente] = useState("")
   const [distribuidora, setDistribuidora] = useState("")
   const [direccion, setDireccion] = useState("")
+  const [estado, setEstado] = useState("disponible")
   const [telefonoCelular, setTelefonoCelular] = useState("")
   const [telefonoFijo, setTelefonoFijo] = useState("")
 
@@ -16,6 +17,7 @@ const ProviderForm = ({ onSubmit, onCancel }: ProviderFormProps) => {
       patente,
       distribuidora,
       direccion,
+      estado,
       telefonoCelular,
       telefonoFijo,
     })
@@ -23,6 +25,7 @@ const ProviderForm = ({ onSubmit, onCancel }: ProviderFormProps) => {
       patente,
       distribuidora,
       direccion,
+      estado,
       telefonoCelular,
       telefonoFijo,
     })
