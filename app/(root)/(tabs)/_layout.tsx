@@ -106,7 +106,7 @@ export default function Layout() {
           onPress={() => setCurrentTab("chat")}
         >
           <TabIcon
-            source={icons.profile}
+            source={icons.chat}
             focused={isFocused("chat")}
             role={role}
           />

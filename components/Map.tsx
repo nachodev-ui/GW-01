@@ -91,6 +91,10 @@ const Map = () => {
         )
 
         if (userProfileDoc.exists()) {
+          console.log(
+            "Perfil de usuario encontrado: ",
+            userProfileDoc.data().tipoUsuario
+          )
           setCurrentUserRole(userProfileDoc.data().tipoUsuario)
         } else {
           setError("Perfil de usuario no encontrado")
@@ -220,24 +224,26 @@ const Map = () => {
         title="Mi ubicación"
         pinColor="blue"
       />
-      {/* Agregar marcadores para los proveedores */}
-      {providersLocations.map((location) => (
-        <Marker
-          key={location.id}
-          coordinate={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-          }}
-          title={`Proveedor ${location.id}`}
-          onPress={() =>
-            handleMarkerPress(
-              location.id,
-              location.latitude,
-              location.longitude
-            )
-          }
-        />
-      ))}
+
+      {/* Marker para los proveedores */}
+      {currentUserRole === "usuario" &&
+        providersLocations.map((location) => (
+          <Marker
+            key={location.id}
+            coordinate={{
+              latitude: location.latitude,
+              longitude: location.longitude,
+            }}
+            title={`Proveedor ${location.id}`}
+            onPress={() =>
+              handleMarkerPress(
+                location.id,
+                location.latitude,
+                location.longitude
+              )
+            }
+          />
+        ))}
 
       {selectedProviderLocation && (
         <MapViewDirections

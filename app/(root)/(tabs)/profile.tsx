@@ -1,5 +1,15 @@
+import { router } from "expo-router"
 import { useEffect, useState } from "react"
-import { Image, ScrollView, Text, View, Button, Alert } from "react-native"
+import {
+  Image,
+  ScrollView,
+  Text,
+  View,
+  Button,
+  Alert,
+  TouchableOpacity,
+  RefreshControl,
+} from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { ReactNativeModal } from "react-native-modal"
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
@@ -8,8 +18,6 @@ import InputField from "@/components/InputField"
 import ProviderForm from "@/components/ProviderForm"
 
 import { useUserStore } from "@/store/index"
-
-import createProduct from "@/app/(api)/(firebase)/createProduct"
 
 const Profile = () => {
   const {
@@ -27,7 +35,9 @@ const Profile = () => {
     setPhone,
   } = useUserStore()
 
-  const [isProviderFormVisible, setIsProviderFormVisible] = useState(false)
+  const [isProviderFormVisible, setIsProviderFormVisible] =
+    useState<boolean>(false)
+  const [refreshing, setRefreshing] = useState<boolean>(false)
 
   useEffect(() => {
     fetchUserData()
@@ -65,30 +75,33 @@ const Profile = () => {
     )
   }
 
-  const handleCreateProduct = async () => {
-    const testProduct = {
-      name: "Producto de prueba",
-      price: 1000,
-      description: "Este es un producto de prueba para testear la API.",
-    }
-
-    try {
-      const result = await createProduct(testProduct)
-      console.log("Producto creado:", result)
-      Alert.alert("Producto creado", "El producto se ha creado correctamente.")
-    } catch (error) {
-      console.error("Error al crear producto:", error)
-      Alert.alert("Error", "Hubo un error al crear el producto.")
-    }
-  }
-
   return (
     <SafeAreaView className="flex-1">
       <ScrollView
         className="px-5"
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true)
+              fetchUserData().then(() => setRefreshing(false))
+            }}
+          />
+        }
       >
-        <Text className="text-2xl font-JakartaBold my-5">Mi perfil</Text>
+        <View className="flex-row justify-between items-center">
+          <Text className="text-2xl font-JakartaBold my-5">Mi perfil</Text>
+          {/* Botón para redirigir al perfil de productos */}
+          {tipoUsuario === "proveedor" && (
+            <TouchableOpacity
+              onPress={() => router.push("/(root)/(tabs)/providerProducts")}
+              className="bg-primary-500 p-2 rounded-md"
+            >
+              <Text className="text-white">Ver productos</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View className="flex items-center justify-center my-5">
           <Image
@@ -146,12 +159,6 @@ const Profile = () => {
             onPress={handleOpenProviderForm}
           />
         )}
-
-        {/* Botón para crear un producto */}
-        <Button
-          title="Crear producto de prueba"
-          onPress={handleCreateProduct}
-        />
 
         <ReactNativeModal
           isVisible={isProviderFormVisible}

@@ -3,10 +3,12 @@ import { User } from "firebase/auth"
 import { TextInputProps, TouchableOpacityProps } from "react-native"
 
 declare interface Product {
-  nombre: string
-  tipo: string
-  cantidad: number
+  id: string
+  marca: "Abastible" | "Gasco" | "Lipigas"
+  formato: "5kg" | "11kg" | "15kg" | "45kg"
   precio: number
+  imagen: string
+  stock: number
 }
 
 declare interface Driver {

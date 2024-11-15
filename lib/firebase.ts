@@ -8,6 +8,17 @@ import {
 import { auth, db } from "@/firebaseConfig"
 import { updateProfile } from "firebase/auth"
 
+export const getCurrentUser = () => {
+  const user = auth.currentUser
+
+  if (!user) {
+    console.log("No hay usuario autenticado")
+    throw new Error("No hay usuario autenticado")
+  }
+
+  return user
+}
+
 // Obtener los datos del usuario desde Firestore
 export const getUserDataFromDB = async () => {
   const user = auth.currentUser
@@ -68,7 +79,7 @@ export const updateUserTypeInDB = async (providerData: {
   telefonoCelular?: string
   telefonoFijo?: string
 }) => {
-  const user = auth.currentUser
+  const user = getCurrentUser()
 
   if (user) {
     const userProfileRef = doc(db, "userProfiles", user.uid)
