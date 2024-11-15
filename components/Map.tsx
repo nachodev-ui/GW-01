@@ -5,12 +5,17 @@ import MapViewDirections from "react-native-maps-directions"
 
 import { auth, db } from "@/firebaseConfig"
 import {
-  doc,
-  getDoc,
-  collection,
   query,
   where,
+  collection,
+  doc,
   getDocs,
+  getDoc,
+  DocumentData,
+  QueryDocumentSnapshot,
+  CollectionReference,
+  DocumentReference,
+  QuerySnapshot,
 } from "firebase/firestore"
 
 import * as Location from "expo-location"
@@ -86,7 +91,6 @@ const Map = () => {
         )
 
         if (userProfileDoc.exists()) {
-          // Suponiendo que el campo para el rol es "tipoUsuario"
           setCurrentUserRole(userProfileDoc.data().tipoUsuario)
         } else {
           setError("Perfil de usuario no encontrado")
@@ -104,48 +108,44 @@ const Map = () => {
 
   const fetchProviderLocations = async () => {
     try {
-      // Paso 1: Consultar la colección `userProfiles` para encontrar usuarios con `tipoUsuario` igual a `proveedor`
+      const userProfilesRef: CollectionReference = collection(
+        db,
+        "userProfiles"
+      )
       const providerQuery = query(
-        collection(db, "userProfiles"),
+        userProfilesRef,
         where("tipoUsuario", "==", "proveedor")
       )
-      const providerSnapshot = await getDocs(providerQuery)
-      console.log("Proveedores encontrados: ", providerSnapshot.size)
 
-      // Crear un arreglo para almacenar las ubicaciones de los proveedores
-      const locations: { id: string; latitude: number; longitude: number }[] =
-        []
+      // Obtener los documentos de los proveedores en un solo lote
+      const providerSnapshots: QuerySnapshot<DocumentData> =
+        await getDocs(providerQuery)
+      const providerIds: string[] = providerSnapshots.docs.map((doc) => doc.id)
 
-      // Paso 2: Iterar sobre los usuarios proveedores encontrados
-      for (const providerDoc of providerSnapshot.docs) {
-        const providerId = providerDoc.id // El UID del proveedor actual
-        console.log("Proveedor ID: ", providerId)
+      const locationsPromises = providerIds.map(async (id) => {
+        const locationDoc = await getDoc(doc(db, "userLocations", id))
 
-        // Consultar la ubicación de cada proveedor usando su UID en la colección `userLocations`
-        const locationDoc = await getDoc(doc(db, "userLocations", providerId))
         if (locationDoc.exists()) {
-          const locationData = locationDoc.data() as {
-            latitude: string
-            longitude: string
-          }
-
-          console.log("Ubicación del proveedor: ", locationData)
-
-          // Asegúrate de que los datos de latitud y longitud existen y son cadenas
-          if (locationData.latitude && locationData.longitude) {
-            locations.push({
-              id: providerId,
-              latitude: parseFloat(locationData.latitude), // Convertir a número
-              longitude: parseFloat(locationData.longitude), // Convertir a número
-            })
+          return {
+            id,
+            latitude: parseFloat(locationDoc.data().latitude),
+            longitude: parseFloat(locationDoc.data().longitude),
           }
         }
-      }
-      console.log("Ubicaciones de proveedores: ", locations)
+        return null
+      })
+
+      const locations = await Promise.all(locationsPromises).then((results) =>
+        results.filter((result) => result !== null)
+      )
+
       setProvidersLocations(locations)
-    } catch (err: any) {
-      setError("Error al cargar las ubicaciones de los proveedores: " + err)
-      console.error("Error al cargar las ubicaciones de los proveedores: ", err)
+    } catch (error) {
+      console.error(
+        "Error al cargar las ubicaciones de los proveedores:",
+        error
+      )
+      setError("Error al cargar las ubicaciones de los proveedores: " + error)
     }
   }
 
@@ -197,72 +197,64 @@ const Map = () => {
   }
 
   return (
-    console.log("Ubicación del usuario: ", userLocation),
-    (
-      <MapView
-        provider={PROVIDER_DEFAULT}
-        className="w-full h-full rounded-2xl"
-        tintColor="black"
-        mapType="mutedStandard"
-        showsPointsOfInterest={false}
-        showsUserLocation={true}
-        userInterfaceStyle="light"
-        region={{
+    <MapView
+      provider={PROVIDER_DEFAULT}
+      className="w-full h-full rounded-2xl"
+      tintColor="black"
+      mapType="mutedStandard"
+      showsPointsOfInterest={false}
+      showsUserLocation={true}
+      userInterfaceStyle="light"
+      region={{
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }}
+    >
+      <Marker
+        coordinate={{
           latitude: userLocation.latitude,
           longitude: userLocation.longitude,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
         }}
-      >
+        title="Mi ubicación"
+        pinColor="blue"
+      />
+      {/* Agregar marcadores para los proveedores */}
+      {providersLocations.map((location) => (
         <Marker
+          key={location.id}
           coordinate={{
+            latitude: location.latitude,
+            longitude: location.longitude,
+          }}
+          title={`Proveedor ${location.id}`}
+          onPress={() =>
+            handleMarkerPress(
+              location.id,
+              location.latitude,
+              location.longitude
+            )
+          }
+        />
+      ))}
+
+      {selectedProviderLocation && (
+        <MapViewDirections
+          origin={{
             latitude: userLocation.latitude,
             longitude: userLocation.longitude,
           }}
-          title="Mi ubicación"
-          pinColor="blue"
+          destination={{
+            latitude: selectedProviderLocation.latitude,
+            longitude: selectedProviderLocation.longitude,
+          }}
+          apikey="AIzaSyD7_q5tJZJbl8NczuY6KOC288uzeBEF7No"
+          strokeWidth={3}
+          strokeColor="green"
         />
-        {/* Agregar marcadores para los proveedores */}
-        {providersLocations.map(
-          (location) => (
-            console.log("Renderizando marcador para proveedor: ", location.id),
-            (
-              <Marker
-                key={location.id}
-                coordinate={{
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                }}
-                title={`Proveedor ${location.id}`}
-                onPress={() =>
-                  handleMarkerPress(
-                    location.id,
-                    location.latitude,
-                    location.longitude
-                  )
-                }
-              />
-            )
-          )
-        )}
-
-        {selectedProviderLocation && (
-          <MapViewDirections
-            origin={{
-              latitude: userLocation.latitude,
-              longitude: userLocation.longitude,
-            }}
-            destination={{
-              latitude: selectedProviderLocation.latitude,
-              longitude: selectedProviderLocation.longitude,
-            }}
-            apikey="AIzaSyD7_q5tJZJbl8NczuY6KOC288uzeBEF7No"
-            strokeWidth={3}
-            strokeColor="green"
-          />
-        )}
-      </MapView>
-    )
+      )}
+    </MapView>
   )
 }
 export default Map

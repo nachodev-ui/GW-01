@@ -1,10 +1,11 @@
-import { Tabs } from "expo-router"
+import { Tabs, TabList, TabTrigger, TabSlot } from "expo-router/ui"
 import { Image, ImageSourcePropType, View } from "react-native"
+import { useEffect, useState } from "react"
 
-import { icons } from "@/constants"
 import { auth, db } from "@/firebaseConfig"
 import { doc, getDoc } from "firebase/firestore"
-import { useEffect, useState } from "react"
+
+import { icons } from "@/constants"
 
 const TabIcon = ({
   source,
@@ -16,20 +17,22 @@ const TabIcon = ({
   role: string | null
 }) => (
   <View
-    className={`flex flex-row justify-center items-center rounded-full ${focused ? "bg-general-300" : ""}`}
+    className={`flex justify-center items-center rounded-full ${
+      focused ? "bg-black" : ""
+    }`}
   >
     <View
-      className={`rounded-full w-12 h-12 items-center justify-center ${
+      className={`rounded-full w-12 h-12 flex justify-center items-center ${
         focused
-          ? { usuario: "bg-[#77BEEA]", proveedor: "bg-success-300" }[role!]
+          ? { usuario: "bg-[#77BEEA]", proveedor: "bg-success-300" }[role!] ||
+            ""
           : ""
       }`}
     >
       <Image
         source={source}
-        tintColor="white"
         resizeMode="contain"
-        className="w-7 h-7"
+        style={{ tintColor: "white", width: 28, height: 28 }}
       />
     </View>
   </View>
@@ -37,82 +40,90 @@ const TabIcon = ({
 
 export default function Layout() {
   const [role, setRole] = useState<string | null>(null)
+  const [currentTab, setCurrentTab] = useState<string>("home")
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         const userDoc = await getDoc(doc(db, "userProfiles", user.uid))
         const userData = userDoc.data()
-        setRole(userData?.tipoUsuario)
+        setRole(userData?.tipoUsuario || null)
       }
     })
 
     return () => unsubscribe()
   }, [])
 
+  const isFocused = (tab: string) => currentTab === tab
+
   return (
     <Tabs
-      initialRouteName="index"
-      screenOptions={{
-        tabBarActiveTintColor: "white",
-        tabBarInactiveTintColor: "white",
-        tabBarShowLabel: false,
-        tabBarStyle: {
-          backgroundColor: { usuario: "#333333", proveedor: "#333333" }[role!],
-          borderRadius: 50,
-          paddingBottom: 0, // ios only
-          overflow: "hidden",
-          marginHorizontal: 20,
-          marginBottom: 20,
-          height: 78,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexDirection: "row",
-          position: "absolute",
-        },
+      options={{
+        initialRouteName: "index",
       }}
     >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "Home",
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.home} focused={focused} role={role} />
-          ),
+      <TabSlot />
+      <TabList
+        style={{
+          backgroundColor: "#333333",
+          marginHorizontal: 20,
+          paddingVertical: 10,
+          paddingHorizontal: 20,
+          borderRadius: 50,
+          position: "absolute",
+          bottom: 20,
+          left: 0,
+          right: 0,
+          flexDirection: "row",
+          justifyContent: "space-between",
         }}
-      />
-      <Tabs.Screen
-        name="rides"
-        options={{
-          title: "Rides",
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.list} focused={focused} role={role} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: "Chat",
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.chat} focused={focused} role={role} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon source={icons.profile} focused={focused} role={role} />
-          ),
-        }}
-      />
+      >
+        <TabTrigger
+          name="home"
+          href="/home"
+          onPress={() => setCurrentTab("home")}
+        >
+          <TabIcon
+            source={icons.home}
+            focused={isFocused("home")}
+            role={role}
+          />
+        </TabTrigger>
+        <TabTrigger
+          name="iris"
+          href="/iris"
+          onPress={() => setCurrentTab("iris")}
+        >
+          <TabIcon
+            source={icons.search}
+            focused={isFocused("iris")}
+            role={role}
+          />
+        </TabTrigger>
+        <TabTrigger
+          name="chat"
+          href="/chat"
+          onPress={() => setCurrentTab("chat")}
+        >
+          <TabIcon
+            source={icons.profile}
+            focused={isFocused("chat")}
+            role={role}
+          />
+        </TabTrigger>
+
+        <TabTrigger
+          name="profile"
+          href="/profile"
+          onPress={() => setCurrentTab("profile")}
+        >
+          <TabIcon
+            source={icons.profile}
+            focused={isFocused("profile")}
+            role={role}
+          />
+        </TabTrigger>
+      </TabList>
     </Tabs>
   )
 }

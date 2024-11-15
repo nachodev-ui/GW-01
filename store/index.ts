@@ -9,6 +9,7 @@ import { DriverStore, UserStore, MarkerData, LocationState } from "@/types/type"
 
 export const useUserStore = create<UserStore>((set) => ({
   user: null,
+  id: "",
   tipoUsuario: "usuario", // Valor inicial
   firstName: "",
   lastName: "",
@@ -23,6 +24,7 @@ export const useUserStore = create<UserStore>((set) => ({
     if (userData) {
       set({
         user: userData as UserStore["user"],
+        id: userData.id,
         tipoUsuario: userData.tipoUsuario,
         firstName: userData.firstName,
         lastName: userData.lastName,

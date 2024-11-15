@@ -138,6 +138,7 @@ declare interface ProviderProfile extends UserProfile {
 
 declare interface UserStore {
   user: UserProfile | null
+  id: string
   tipoUsuario: string
   firstName: string
   lastName: string

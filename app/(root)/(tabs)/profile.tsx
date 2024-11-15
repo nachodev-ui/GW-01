@@ -2,12 +2,14 @@ import { useEffect, useState } from "react"
 import { Image, ScrollView, Text, View, Button, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { ReactNativeModal } from "react-native-modal"
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
 
 import InputField from "@/components/InputField"
 import ProviderForm from "@/components/ProviderForm"
 
 import { useUserStore } from "@/store/index"
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
+
+import createProduct from "@/app/(api)/(firebase)/createProduct"
 
 const Profile = () => {
   const {
@@ -61,6 +63,23 @@ const Profile = () => {
       "Perfil guardado",
       "Los datos de tu perfil se han guardado correctamente."
     )
+  }
+
+  const handleCreateProduct = async () => {
+    const testProduct = {
+      name: "Producto de prueba",
+      price: 1000,
+      description: "Este es un producto de prueba para testear la API.",
+    }
+
+    try {
+      const result = await createProduct(testProduct)
+      console.log("Producto creado:", result)
+      Alert.alert("Producto creado", "El producto se ha creado correctamente.")
+    } catch (error) {
+      console.error("Error al crear producto:", error)
+      Alert.alert("Error", "Hubo un error al crear el producto.")
+    }
   }
 
   return (
@@ -127,6 +146,12 @@ const Profile = () => {
             onPress={handleOpenProviderForm}
           />
         )}
+
+        {/* Botón para crear un producto */}
+        <Button
+          title="Crear producto de prueba"
+          onPress={handleCreateProduct}
+        />
 
         <ReactNativeModal
           isVisible={isProviderFormVisible}
