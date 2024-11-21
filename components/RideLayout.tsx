@@ -26,7 +26,7 @@ const RideLayout = ({
   return (
     <GestureHandlerRootView className="flex-1">
       <View className="flex-1 bg-white">
-        <View className="flex flex-col h-screen bg-blue-500">
+        <View className="flex flex-col h-screen bg-blue-200">
           <View className="flex flex-row absolute z-10 top-16 items-center justify-start px-5">
             <TouchableOpacity onPress={() => router.back()}>
               <View className="w-10 h-10 bg-white rounded-full items-center justify-center">
@@ -49,12 +49,9 @@ const RideLayout = ({
 
         <BottomSheet
           ref={bottomSheetRef}
-          snapPoints={snapPoints || ["40%", "85%"]}
-          index={0}
-          enableHandlePanningGesture={false}
-          enableContentPanningGesture={false}
+          snapPoints={snapPoints || ["50%", "80%"]}
         >
-          {title === "Choose a Rider" ? (
+          {title === "Elige tu Proveedor" ? (
             <BottomSheetView
               style={{
                 flex: 1,

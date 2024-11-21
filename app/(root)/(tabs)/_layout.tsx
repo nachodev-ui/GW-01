@@ -111,7 +111,6 @@ export default function Layout() {
             role={role}
           />
         </TabTrigger>
-
         <TabTrigger
           name="profile"
           href="/profile"

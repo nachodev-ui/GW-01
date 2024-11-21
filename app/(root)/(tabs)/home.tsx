@@ -10,16 +10,18 @@ import {
   ActivityIndicator,
   Modal,
   Button,
+  Alert,
+  AppState,
+  AppStateStatus,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import GoogleTextInput from "@/components/GoogleTextInput"
 import Map from "@/components/Map"
 import RideCard from "@/components/RideCard"
 
 import { useFetch } from "@/lib/fetch"
 import { Ride } from "@/types/type"
-import { useLocationStore } from "@/store"
+import { useLocationStore, useUserStore } from "@/store"
 import { icons, images } from "@/constants"
 
 import { db } from "../../../firebaseConfig" // Ajusta la ruta si es necesario
@@ -32,12 +34,25 @@ import {
   where,
   onSnapshot,
   updateDoc,
+  addDoc,
 } from "firebase/firestore"
 
 const Home = () => {
+  const { tipoUsuario } = useUserStore()
   const { setUserLocation, setSelectedProviderLocation } = useLocationStore()
+
+  const [appState, setAppState] = useState<AppStateStatus>(
+    AppState.currentState
+  )
+
   const [user, setUser] = useState<User | null>(null)
   const [hasPermission, setHasPermission] = useState<boolean>(false)
+
+  const [pedidoActual, setPedidoActual] = useState<any>(null)
+  const [pedidoModalVisible, setPedidoModalVisible] = useState<boolean>(false)
+
+  const [refreshing, setRefreshing] = useState<boolean>(false)
+  const [loadingPayment, setLoadingPayment] = useState<boolean>(false)
 
   // Obtener datos de paseos recientes
   const { data: recentRides, loading } = useFetch<Ride[]>(`/(api)/ride/99`)
@@ -53,11 +68,11 @@ const Home = () => {
         }
         setHasPermission(true)
 
-        // Obtener la ubicaci贸n
+        // Obtener la ubicación
         const location = await Location.getCurrentPositionAsync({})
         const { latitude, longitude } = location.coords
 
-        // Actualizar la ubicaci贸n en el estado global (store)
+        // Actualizar la ubicación en el estado global (store)
         setUserLocation({ latitude, longitude })
 
         // Obtener el usuario autenticado
@@ -81,7 +96,7 @@ const Home = () => {
     fetchLocationAndUserData()
   }, [setUserLocation])
 
-  // Funci贸n para guardar la ubicaci贸n en Firestore
+  // Función para guardar la ubicación en Firestore
   const saveUserLocation = async (
     uid: string,
     latitude: number,
@@ -93,40 +108,88 @@ const Home = () => {
         longitude,
         timestamp: new Date(),
       })
-      console.log("Document written with ID:", uid)
+      console.log("Ubicación del usuario añadida:", uid)
     } catch (err) {
       console.error("Error adding document:", err)
     }
   }
 
-  const [pedidoActual, setPedidoActual] = useState<any>(null)
-  const [pedidoModalVisible, setPedidoModalVisible] = useState<boolean>(false)
+  const removeProviderLocation = async (uid: string) => {
+    if (tipoUsuario === "proveedor") {
+      try {
+        await setDoc(doc(db, "userLocations", uid), {
+          latitude: null,
+          longitude: null,
+          timestamp: new Date(),
+        })
 
-  const handleDestinationPress = async (location: {
-    id: string
-    latitude: number
-    longitude: number
-  }) => {
-    setSelectedProviderLocation(location)
+        console.log("Provider location removed")
+      } catch (error) {
+        console.error("Error removing provider location:", error)
+      }
+    }
+  }
 
-    // Retrieve user location from the global store or state
-    const userLocation = useLocationStore((state) => state.userLocation)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appState.match(/active/) &&
+        nextAppState.match(/inactive|background/)
+      ) {
+        console.log("App has come to the foreground!")
 
-    if (user && userLocation) {
-      // Enviar los par谩metros al componente de "find-ride"
-      router.push({
-        pathname: "/(root)/find-ride",
-        params: {
-          providerId: location.id,
-          providerLat: location.latitude,
-          providerLng: location.longitude,
-          userId: user.uid,
-          userLat: userLocation.latitude,
-          userLng: userLocation.longitude,
+        // Remove provider location when the app is in the background
+        if (tipoUsuario === "proveedor" && user) {
+          removeProviderLocation(user.uid)
+        }
+      }
+      setAppState(nextAppState)
+    }
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange
+    )
+
+    return () => {
+      subscription.remove()
+    }
+  }, [appState, user])
+
+  const handlePaymentRequest = async () => {
+    setLoadingPayment(true)
+
+    const url = "https://gw-back.onrender.com/api/create"
+    const body = {
+      amount: 3000,
+      currency: "CLP",
+      subject: "Cobro de prueba desde Render",
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify(body),
       })
-    } else {
-      console.error("No user is signed in or user location is missing.")
+
+      const data = await response.json()
+      if (response.ok) {
+        Alert.alert("Pago exitoso", "El pago fue creado correctamente.")
+        console.log("Respuesta del pago:", data)
+      } else {
+        Alert.alert("Error en el pago", `Error: ${data.error}`)
+        console.error("Error al crear el pago:", data)
+      }
+    } catch (error) {
+      Alert.alert(
+        "Error en la solicitud",
+        "Hubo un problema al realizar la solicitud."
+      )
+      console.error("Error en la solicitud:", error)
+    } finally {
+      setLoadingPayment(false)
     }
   }
 
@@ -297,6 +360,14 @@ const Home = () => {
               <Text className="text-xl font-JakartaBold mt-5 mb-3">
                 Pedidos recientes
               </Text>
+
+              <Button
+                title={
+                  loadingPayment ? "Cargando..." : "Realizar pago de prueba"
+                }
+                onPress={handlePaymentRequest}
+                disabled={loadingPayment}
+              />
             </>
           }
         />

@@ -49,11 +49,11 @@ const Map = () => {
     setSelectedProviderLocation,
   } = useLocationStore()
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>("")
 
-  const currentUserId = user?.uid // ID del usuario actual
-  const [currentUserRole, setCurrentUserRole] = useState("") // Inicializar rol
+  const currentUserId: string = user?.uid
+  const [currentUserRole, setCurrentUserRole] = useState<string>("")
 
   const requestLocationPermission = async () => {
     try {
@@ -162,7 +162,6 @@ const Map = () => {
     fetchProviderLocations()
   }, [])
 
-  // Manejo de estados de carga y error
   if (loading) {
     return (
       <View className="flex justify-between items-center w-full">
@@ -261,8 +260,8 @@ const Map = () => {
             longitude: selectedProviderLocation.longitude,
           }}
           apikey="AIzaSyD7_q5tJZJbl8NczuY6KOC288uzeBEF7No"
-          strokeWidth={3}
-          strokeColor="green"
+          strokeWidth={4}
+          strokeColor="#333333"
         />
       )}
     </MapView>

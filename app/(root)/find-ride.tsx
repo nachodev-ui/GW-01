@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router"
+import { router, useLocalSearchParams } from "expo-router"
 import {
   Text,
   View,
@@ -7,7 +7,7 @@ import {
   Alert,
   Image,
 } from "react-native"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import RideLayout from "@/components/RideLayout"
 
@@ -21,11 +21,10 @@ import {
   setDoc,
   DocumentData,
 } from "firebase/firestore"
+import { getAuth, onAuthStateChanged } from "firebase/auth"
 
 import { useLocationStore } from "@/store"
 import { Product } from "@/types/type"
-import { getAuth, onAuthStateChanged } from "firebase/auth" // Importar Firebase Auth
-import { router } from "expo-router"
 
 const FindRide = () => {
   const { providerUid, destinationLatitude, destinationLongitude } =
@@ -35,30 +34,30 @@ const FindRide = () => {
       destinationLongitude: number
     }
 
-  const { providerId, providerLat, providerLng, userId, userLat, userLng } =
-    useLocalSearchParams()
-
-  const { setProvidersLocations } = useLocationStore()
+  const { setUserLocation, setProvidersLocations } = useLocationStore()
 
   const [providerProducts, setProviderProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingProducts, setLoadingProducts] = useState(true) // Estado para productos
-  const [clientId, setClientId] = useState<string | null>(null) // Para almacenar el UID del cliente
-  const [userLatq, setUserLatq] = useState<number | null>(null) // Para almacenar latitud del usuario
-  const [userLngq, setUserLngq] = useState<number | null>(null) // Para almacenar longitud del usuario
+  const [loading, setLoading] = useState<boolean>(true)
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(true)
+  const [clientId, setClientId] = useState<string | null>(null)
+
+  const [pedidoEnCamino, setPedidoEnCamino] = useState<boolean>(false)
+  const [pedidoDetalles, setPedidoDetalles] = useState<DocumentData | null>(
+    null
+  )
+  const [loadingOrder, setLoadingOrder] = useState(false)
 
   useEffect(() => {
-    const auth = getAuth()
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const authFirebase = getAuth()
+    const unsubscribe = onAuthStateChanged(authFirebase, (user) => {
       if (user) {
         setClientId(user.uid)
         const userLocationRef = doc(db, "userLocations", user.uid)
         getDoc(userLocationRef)
           .then((docSnap) => {
             if (docSnap.exists()) {
-              const data = docSnap.data()
-              setUserLatq(data.latitude)
-              setUserLngq(data.longitude)
+              const { latitude, longitude } = docSnap.data()
+              setUserLocation({ latitude: latitude, longitude: longitude })
             } else {
               console.log("No se encontró la ubicación del usuario.")
             }
@@ -68,37 +67,38 @@ const FindRide = () => {
           })
       } else {
         setClientId(null)
-        setUserLatq(null)
-        setUserLngq(null)
+        setUserLocation({ latitude: 0, longitude: 0 })
       }
     })
 
     return () => unsubscribe()
   }, [])
 
-  const fetchProviderData = () => {
-    try {
-      const providerDocRef = doc(db, "providerProducts", providerUid)
-      const unsubscribe = onSnapshot(providerDocRef, (providerDoc) => {
+  const fetchProviderData = useCallback(() => {
+    const providerDocRef = doc(db, "providerProducts", providerUid)
+    const unsubscribe = onSnapshot(
+      providerDocRef,
+      (providerDoc) => {
         if (providerDoc.exists()) {
-          const products = providerDoc.data().productos
+          const products = providerDoc.data().products || []
           setProviderProducts(products)
-          console.log("Productos del proveedor:", products)
         } else {
-          console.log("No se encontró el documento de productos del proveedor.")
+          console.warn("No se encontraron productos para este proveedor.")
         }
-      })
-      return unsubscribe
-    } catch (error) {
-      console.error("Error al obtener los datos del proveedor: ", error)
-    } finally {
-      setLoadingProducts(false)
-    }
-  }
+        setLoadingProducts(false)
+      },
+      (error) => {
+        console.error("Error al suscribirse a los datos del proveedor:", error)
+        setLoadingProducts(false)
+      }
+    )
+    return unsubscribe
+  }, [providerUid])
 
   useEffect(() => {
-    fetchProviderData()
-  }, [])
+    const unsuscribe = fetchProviderData()
+    return () => unsuscribe()
+  }, [fetchProviderData])
 
   useEffect(() => {
     if (destinationLatitude && destinationLongitude) {
@@ -112,12 +112,6 @@ const FindRide = () => {
     }
   }, [destinationLatitude, destinationLongitude])
 
-  const [pedidoEnCamino, setPedidoEnCamino] = useState(false)
-  const [pedidoDetalles, setPedidoDetalles] = useState<DocumentData | null>(
-    null
-  )
-  const [loadingOrder, setLoadingOrder] = useState(false) // Estado para la carga del pedido
-
   // Función para crear el pedido en la base de datos
   const crearPedido = async (
     ubicacion: { lat: number; lng: number },
@@ -125,7 +119,7 @@ const FindRide = () => {
   ) => {
     try {
       if (!clientId) {
-        console.log("Cliente no autenticado.")
+        Alert.alert("Error", "Debes estar autenticado para realizar un pedido.")
         return
       }
       console.log("Client ID:", clientId)
@@ -137,23 +131,20 @@ const FindRide = () => {
         clienteId: clientId,
         conductorId: providerUid,
         producto,
-        ubicacionCliente:
-          userLatq && userLngq ? { lat: userLatq, lng: userLngq } : null,
+        ubicacionCliente: ubicacion,
         estado: "pendiente",
         timestamp: new Date(),
       })
 
       const pedidoId = pedidoRef.id
 
-      // Actualiza el pedido con el ID generado
       await setDoc(doc(db, "pedidos", pedidoId), { pedidoId }, { merge: true })
       console.log("Pedido creado con ID:", pedidoId)
 
       // Llama a la función de escuchar estado para manejar el estado del pedido
       escucharEstadoPedido(pedidoId)
-    } catch (error) {
-      console.error("Error al crear el pedido: ", error)
-      setLoadingOrder(false) // Desactiva la carga en caso de error
+    } catch (err: any) {
+      console.error("Error al crear el pedido: ", err)
     }
   }
 
@@ -215,52 +206,49 @@ const FindRide = () => {
   return (
     <RideLayout title="Ride">
       {pedidoEnCamino ? (
-        <View
-          style={{
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-            Tu pedido está en camino
-          </Text>
-          <Text>
+        <View className="flex items-center justify-center p-5">
+          <Text className="text-lg font-bold">Tu pedido está en camino</Text>
+          <Text className="text-center text-gray-600 mt-2">
             Espera mientras el proveedor se dirige hacia tu ubicación.
           </Text>
           {pedidoDetalles && (
-            <View style={{ marginTop: 16 }}>
-              <Text>Producto: {pedidoDetalles.producto}</Text>
-              <Text>Proveedor: {pedidoDetalles.conductorId}</Text>
-              <Text>Estado: {pedidoDetalles.estado}</Text>
+            <View className="mt-4 p-4 bg-gray-100 rounded-lg shadow-md">
+              <Text className="text-gray-800">
+                Producto: {pedidoDetalles.producto}
+              </Text>
+              <Text className="text-gray-800">
+                Proveedor: {pedidoDetalles.conductorId}
+              </Text>
+              <Text className="text-gray-800">
+                Estado: {pedidoDetalles.estado}
+              </Text>
             </View>
           )}
         </View>
       ) : (
         <>
-          <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 12 }}>
-            Productos
-          </Text>
+          <Text className="text-xl font-JakartaMedium mb-3">Productos</Text>
           {loadingProducts ? (
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <ActivityIndicator size="large" color="#0000ff" />
-              <Text>Cargando productos...</Text>
+            <View className="flex items-center justify-center">
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text className="font-JakartaBold mt-2">
+                Cargando productos...
+              </Text>
             </View>
           ) : providerProducts.length > 0 ? (
             providerProducts.map((product, index) => (
               <View
                 key={index}
-                style={{
-                  marginVertical: 8,
-                  padding: 12,
-                  backgroundColor: "#f0f0f0",
-                  borderRadius: 8,
-                }}
+                className="mb-4 p-4 bg-gray-100 rounded-lg shadow-md"
               >
-                <Text>Marca de gas: {product.marca}</Text>
-                <Text>Formato del gas (KG): {product.formato}</Text>
-                <Text>Stock: {product.stock}</Text>
-                <Text>Precio: ${product.precio}</Text>
+                <Text className="font-Jakarta">
+                  Marca de gas: {product.marca}
+                </Text>
+                <Text className="font-Jakarta">
+                  Formato del gas (KG): {product.formato}
+                </Text>
+                <Text className="font-Jakarta">Stock: {product.stock}</Text>
+                <Text className="font-Jakarta">Precio: ${product.precio}</Text>
                 <Button
                   title="Comprar Producto"
                   onPress={() => {
@@ -272,33 +260,23 @@ const FindRide = () => {
                       )
                     }
                   }}
-                  disabled={loadingOrder} // Desactiva el botón cuando loadingOrder es true
+                  disabled={loadingOrder}
                 />
               </View>
             ))
           ) : (
-            <Text>No hay productos disponibles para este proveedor.</Text>
+            <Text className="text-gray-600">
+              No hay productos disponibles para este proveedor.
+            </Text>
           )}
         </>
       )}
 
       {/* Pantalla de Carga mientras se espera la respuesta */}
       {loadingOrder && (
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-          }}
-        >
+        <View className="flex items-center justify-center absolute inset-0 bg-black bg-opacity-50">
           <ActivityIndicator size="large" color="#ffffff" />
-          <Text style={{ color: "white", marginTop: 12 }}>
+          <Text className="text-white mt-3">
             Te estamos contactando con el proveedor, espera...
           </Text>
         </View>
