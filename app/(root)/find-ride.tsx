@@ -10,6 +10,8 @@ import {
 import { useCallback, useEffect, useState } from "react"
 
 import RideLayout from "@/components/RideLayout"
+import CustomButton from "@/components/CustomButton"
+import CartIcon from "@/components/CartIcon"
 
 import { db } from "@/firebaseConfig"
 import {
@@ -20,63 +22,123 @@ import {
   collection,
   setDoc,
   DocumentData,
+  updateDoc,
 } from "firebase/firestore"
-import { getAuth, onAuthStateChanged } from "firebase/auth"
+import { getAuth, onAuthStateChanged, User } from "firebase/auth"
 
-import { useLocationStore } from "@/store"
-import { Product } from "@/types/type"
+import { useLocationStore, usePedidoStore } from "@/store"
+import { Product, ProviderProfile } from "@/types/type"
+
+import { useCartStore } from "@/services/cart/cart.store"
+
+import { formatToChileanPesos, getImageForBrand } from "@/lib/utils"
 
 const FindRide = () => {
-  const { providerUid, destinationLatitude, destinationLongitude } =
+  const { userLocation, selectedProviderLocation, setUserLocation } =
+    useLocationStore()
+  const { items, addItem } = useCartStore((state) => state)
+  const { pedidoActual, setPedidoActual } = usePedidoStore()
+
+  const { providerUid, providerAddress, userAddress } =
     useLocalSearchParams() as unknown as {
       providerUid: string
       destinationLatitude: number
       destinationLongitude: number
+      providerAddress: string
+      userAddress: string
     }
 
-  const { setUserLocation, setProvidersLocations } = useLocationStore()
+  const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0)
 
+  const [providerData, setProviderData] = useState<ProviderProfile | null>(null)
   const [providerProducts, setProviderProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [loadingProducts, setLoadingProducts] = useState<boolean>(true)
+
   const [clientId, setClientId] = useState<string | null>(null)
+  const [pedidoId, setPedidoId] = useState<string | null>(null)
 
   const [pedidoEnCamino, setPedidoEnCamino] = useState<boolean>(false)
   const [pedidoDetalles, setPedidoDetalles] = useState<DocumentData | null>(
     null
   )
-  const [loadingOrder, setLoadingOrder] = useState(false)
+
+  const [loadingOrder, setLoadingOrder] = useState<boolean>(false)
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(true)
 
   useEffect(() => {
     const authFirebase = getAuth()
-    const unsubscribe = onAuthStateChanged(authFirebase, (user) => {
+
+    const handleAuthChange = async (user: User | null) => {
       if (user) {
         setClientId(user.uid)
-        const userLocationRef = doc(db, "userLocations", user.uid)
-        getDoc(userLocationRef)
-          .then((docSnap) => {
+
+        // Obtén la ubicación del estado global
+        const { userLocation, setUserLocation } = useLocationStore.getState()
+
+        if (userLocation) {
+          // Usa la ubicación del estado global
+          setUserLocation(userLocation)
+        } else {
+          // Consulta Firebase solo si no tienes la ubicación en el estado global
+          const userLocationRef = doc(db, "userLocations", user.uid)
+          try {
+            const docSnap = await getDoc(userLocationRef)
             if (docSnap.exists()) {
               const { latitude, longitude } = docSnap.data()
-              setUserLocation({ latitude: latitude, longitude: longitude })
+              setUserLocation({ latitude, longitude })
             } else {
               console.log("No se encontró la ubicación del usuario.")
             }
-          })
-          .catch((error) => {
+          } catch (error) {
             console.error("Error al obtener la ubicación del usuario:", error)
-          })
+          }
+        }
       } else {
+        // El usuario no está autenticado
         setClientId(null)
         setUserLocation({ latitude: 0, longitude: 0 })
       }
-    })
+    }
+
+    const unsubscribe = onAuthStateChanged(authFirebase, handleAuthChange)
 
     return () => unsubscribe()
-  }, [])
+  }, [userLocation])
 
   const fetchProviderData = useCallback(() => {
     const providerDocRef = doc(db, "providerProducts", providerUid)
-    const unsubscribe = onSnapshot(
+    const providerProfileDocRef = doc(db, "userProfiles", providerUid)
+
+    // Set loading state to true initially
+    setLoadingProducts(true)
+
+    let profileLoaded = false
+    let productsLoaded = false
+
+    // Helper function to update loading state once both profile and products are loaded
+    const checkLoadingComplete = () => {
+      if (profileLoaded && productsLoaded) {
+        setLoadingProducts(false)
+      }
+    }
+
+    // Suscripción para providerProfile
+    const unsubscribeProfile = onSnapshot(
+      providerProfileDocRef,
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const providerProfileData = docSnapshot.data() as ProviderProfile
+          setProviderData(providerProfileData)
+          console.log("Datos del proveedor:", providerProfileData)
+        } else {
+          console.log("No existe el documento del proveedor.")
+        }
+        profileLoaded = true
+        checkLoadingComplete()
+      }
+    )
+
+    // Suscripción para providerProducts
+    const unsubscribeProducts = onSnapshot(
       providerDocRef,
       (providerDoc) => {
         if (providerDoc.exists()) {
@@ -85,38 +147,31 @@ const FindRide = () => {
         } else {
           console.warn("No se encontraron productos para este proveedor.")
         }
-        setLoadingProducts(false)
+        productsLoaded = true
+        checkLoadingComplete()
       },
       (error) => {
         console.error("Error al suscribirse a los datos del proveedor:", error)
-        setLoadingProducts(false)
+        productsLoaded = true // Mark as loaded even on error
+        checkLoadingComplete()
       }
     )
-    return unsubscribe
+
+    // Retornar ambas funciones de limpieza para desuscribir cuando se salga del componente
+    return () => {
+      unsubscribeProducts()
+      unsubscribeProfile()
+    }
   }, [providerUid])
 
   useEffect(() => {
-    const unsuscribe = fetchProviderData()
-    return () => unsuscribe()
-  }, [fetchProviderData])
-
-  useEffect(() => {
-    if (destinationLatitude && destinationLongitude) {
-      setProvidersLocations([
-        {
-          id: providerUid,
-          latitude: destinationLatitude,
-          longitude: destinationLongitude,
-        },
-      ])
+    const unsubscribeData = fetchProviderData()
+    return () => {
+      unsubscribeData()
     }
-  }, [destinationLatitude, destinationLongitude])
+  }, [fetchProviderData, providerUid])
 
-  // Función para crear el pedido en la base de datos
-  const crearPedido = async (
-    ubicacion: { lat: number; lng: number },
-    producto: string
-  ) => {
+  const crearPedido = async (nombre: string, precio: number) => {
     try {
       if (!clientId) {
         Alert.alert("Error", "Debes estar autenticado para realizar un pedido.")
@@ -124,14 +179,17 @@ const FindRide = () => {
       }
       console.log("Client ID:", clientId)
 
-      setLoadingOrder(true) // Activa la pantalla de carga al crear el pedido
+      setLoadingOrder(true)
 
       const pedidoRef = await addDoc(collection(db, "pedidos"), {
         pedidoId: "",
         clienteId: clientId,
+        nombreCliente: "",
         conductorId: providerUid,
-        producto,
-        ubicacionCliente: ubicacion,
+        ubicacionProveedor: providerAddress,
+        ubicacionCliente: userAddress,
+        producto: nombre,
+        precio,
         estado: "pendiente",
         timestamp: new Date(),
       })
@@ -140,6 +198,19 @@ const FindRide = () => {
 
       await setDoc(doc(db, "pedidos", pedidoId), { pedidoId }, { merge: true })
       console.log("Pedido creado con ID:", pedidoId)
+      setPedidoActual({
+        id: pedidoId,
+        clienteId: clientId,
+        nombreCliente: "",
+        conductorId: providerUid,
+        ubicacionProveedor: providerAddress,
+        ubicacionCliente: userAddress,
+        producto,
+        precio,
+        estado: "pendiente",
+        timestamp: new Date(),
+      })
+      console.log("Pedido actual:", pedidoActual)
 
       // Llama a la función de escuchar estado para manejar el estado del pedido
       escucharEstadoPedido(pedidoId)
@@ -148,7 +219,6 @@ const FindRide = () => {
     }
   }
 
-  // Función para escuchar el estado de un pedido específico
   const escucharEstadoPedido = (pedidoId: string) => {
     const pedidoDocRef = doc(db, "pedidos", pedidoId)
 
@@ -160,19 +230,31 @@ const FindRide = () => {
 
         switch (estado) {
           case "aceptado":
-            Alert.alert(
-              "Estado del Pedido",
-              "Tu pedido ha sido aceptado. Espera mientras va en camino."
-            )
+            Alert.alert("Estado del Pedido", "Tu pedido ha sido aceptado.")
+
+            // Crear la sala de chat en la colección 'chats' con el ID del pedido
+            const chatRoomRef = doc(db, "chats", pedidoId)
+            setDoc(chatRoomRef, {
+              pedidoId,
+              providerUid: selectedProviderLocation?.id,
+              clientId,
+              createdAt: new Date(),
+            })
+
             setPedidoEnCamino(true)
-            setPedidoDetalles(pedidoData) // Guarda los detalles del pedido
-            setLoadingOrder(false) // Desactiva la carga cuando se acepta el pedido
+            setPedidoDetalles(pedidoData)
+            console.log("pedido id", pedidoId)
+            setLoadingOrder(false)
             unsubscribe()
+            setPedidoId(pedidoId)
             break
+
           case "rechazado":
             Alert.alert("Estado del Pedido", "Tu pedido ha sido rechazado.")
             setLoadingOrder(false) // Desactiva la carga cuando se rechaza el pedido
-            router.push("/home")
+            setTimeout(() => {
+              router.push("/home")
+            }, 500)
             unsubscribe()
             break
           default:
@@ -188,13 +270,11 @@ const FindRide = () => {
 
         switch (estado) {
           case "llegado":
-            // Redirige al Home cuando el estado sea "llegado"
             Alert.alert("Estado del Pedido", "Tu pedido ha llegado.")
-            // Asegúrate de que la navegación ocurra después de que el estado se haya actualizado
             setTimeout(() => {
-              router.push("/home") // Redirige a la pantalla de inicio
-              unsubscribeLlegado() // Desactiva la suscripción después de la redirección
-            }, 500) // Espera medio segundo para permitir que la UI se actualice
+              router.push("/home")
+              unsubscribeLlegado()
+            }, 1000)
             break
           default:
             console.log("Estado del pedido:", estado)
@@ -203,14 +283,66 @@ const FindRide = () => {
     })
   }
 
+  const handleRechazarPedido = async () => {
+    if (pedidoId) {
+      const pedidosDocRef = doc(db, "pedidos", pedidoId)
+      try {
+        await updateDoc(pedidosDocRef, {
+          estado: "rechazado",
+        })
+
+        Alert.alert(
+          "Pedido cancelado",
+          "Has cancelado el pedido, se notificará al proveedor."
+        )
+
+        // Navigate back to home screen
+        setTimeout(() => {
+          router.push("/home")
+        }, 500)
+      } catch (error) {
+        console.error("Error al rechazar el pedido:", error)
+      }
+    } else {
+      console.warn("No se encontró el ID del pedido.")
+    }
+  }
+
+  const handleAddToCart = (product: Product) => {
+    addItem(product)
+  }
+
   return (
-    <RideLayout title="Ride">
+    <RideLayout title="Inicio">
+      <View className="flex flex-row justify-between items-center p-2 mb-4">
+        <Text className="text-2xl font-bold">Pedido</Text>
+        <CartIcon
+          totalQuantity={totalQuantity}
+          onPress={() => router.push("/cart")}
+        />
+      </View>
+
       {pedidoEnCamino ? (
         <View className="flex items-center justify-center p-5">
-          <Text className="text-lg font-bold">Tu pedido está en camino</Text>
-          <Text className="text-center text-gray-600 mt-2">
+          <Text className="textext-cente-lg font-bold">
+            Tu pedido está en camino
+          </Text>
+          <Text className="tr text-gray-600 mt-2">
             Espera mientras el proveedor se dirige hacia tu ubicación.
           </Text>
+          <Button
+            title="Ir al chat"
+            onPress={() => {
+              router.push({
+                pathname: "/(root)/chat-screen",
+                params: {
+                  pedidoId: pedidoId,
+                  remitenteId: clientId,
+                },
+              })
+            }}
+            color="#3b82f6"
+          />
           {pedidoDetalles && (
             <View className="mt-4 p-4 bg-gray-100 rounded-lg shadow-md">
               <Text className="text-gray-800">
@@ -224,10 +356,16 @@ const FindRide = () => {
               </Text>
             </View>
           )}
+          <CustomButton
+            title="Cancelar Pedido"
+            onPress={() => handleRechazarPedido()}
+            className="mt-4"
+            bgVariant="danger"
+            disabled={loadingOrder}
+          />
         </View>
       ) : (
         <>
-          <Text className="text-xl font-JakartaMedium mb-3">Productos</Text>
           {loadingProducts ? (
             <View className="flex items-center justify-center">
               <ActivityIndicator size="large" color="#3b82f6" />
@@ -239,47 +377,38 @@ const FindRide = () => {
             providerProducts.map((product, index) => (
               <View
                 key={index}
-                className="mb-4 p-4 bg-gray-100 rounded-lg shadow-md"
+                className="mb-4 p-4 bg-slate-50 rounded-lg shadow-sm"
               >
-                <Text className="font-Jakarta">
-                  Marca de gas: {product.marca}
+                <Text className="text-xl font-JakartaBold mb-2">
+                  {product.marca}
                 </Text>
-                <Text className="font-Jakarta">
-                  Formato del gas (KG): {product.formato}
-                </Text>
-                <Text className="font-Jakarta">Stock: {product.stock}</Text>
-                <Text className="font-Jakarta">Precio: ${product.precio}</Text>
+                <View className="flex flex-row justify-between items-center mb-2">
+                  <View className="flex-1">
+                    <Text className="font-Jakarta text-sm text-gray-600">
+                      Proveedor: {providerData?.firstName}
+                    </Text>
+                    <Text className="font-Jakarta text-sm text-gray-600">
+                      Formato (KG): {product.formato}
+                    </Text>
+                    <Text className="font-JakartaSemiBold text-sm text-gray-800">
+                      Precio: {formatToChileanPesos(product.precio)}
+                    </Text>
+                  </View>
+                  <Image
+                    source={getImageForBrand(product.marca)}
+                    className="w-16 h-16 rounded-md"
+                  />
+                </View>
                 <Button
-                  title="Comprar Producto"
-                  onPress={() => {
-                    if (!loadingOrder) {
-                      console.log("Clic en Comprar Producto")
-                      crearPedido(
-                        { lat: destinationLatitude, lng: destinationLongitude },
-                        product.marca
-                      )
-                    }
-                  }}
-                  disabled={loadingOrder}
+                  title="Agregar al carrito"
+                  onPress={() => handleAddToCart(product)}
                 />
               </View>
             ))
           ) : (
-            <Text className="text-gray-600">
-              No hay productos disponibles para este proveedor.
-            </Text>
+            <Text className="font-Jakarta">No hay productos disponibles</Text>
           )}
         </>
-      )}
-
-      {/* Pantalla de Carga mientras se espera la respuesta */}
-      {loadingOrder && (
-        <View className="flex items-center justify-center absolute inset-0 bg-black bg-opacity-50">
-          <ActivityIndicator size="large" color="#ffffff" />
-          <Text className="text-white mt-3">
-            Te estamos contactando con el proveedor, espera...
-          </Text>
-        </View>
       )}
     </RideLayout>
   )
