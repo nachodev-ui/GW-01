@@ -1,33 +1,77 @@
-import { Image, Text, View } from "react-native";
+import { useEffect } from "react"
+import { Image, Text, View } from "react-native"
 
-import { icons } from "@/constants";
-import { formatDate, formatTime } from "@/lib/utils";
-import { Ride } from "@/types/type";
+import { usePedidoStore, useUserStore } from "@/store"
 
-const RideCard = ({ ride }: { ride: Ride }) => {
+import { icons } from "@/constants"
+import { Pedido } from "@/types/type"
+import { formatToChileanPesos } from "@/lib/utils"
+
+interface Timestamp {
+  seconds: number
+  nanoseconds: number
+}
+
+const RideCard = ({ pedido }: { pedido: Pedido }) => {
+  const { fetchUserData } = useUserStore()
+  const { fetchPedidosStore } = usePedidoStore()
+
+  const formatDate = (timestamp: Timestamp) => {
+    const date = new Date(timestamp.seconds * 1000)
+    const day = date.getDate()
+    const monthNames = [
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
+    ]
+    const month = monthNames[date.getMonth()]
+    const year = date.getFullYear()
+    const hours = date.getHours()
+    const minutes = date.getMinutes()
+
+    return `${day < 10 ? "0" + day : day} ${month} ${year} - ${hours}:${minutes}hrs`
+  }
+
+  useEffect(() => {
+    fetchUserData()
+    fetchPedidosStore()
+  }, [fetchUserData, fetchPedidosStore])
+
+  const mapUrl = `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=400&center=lonlat:${pedido?.ubicacionProveedor.longitude},${pedido?.ubicacionProveedor.latitude}&zoom=14&apiKey=${process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY}`
+  const encodedMapUrl = encodeURI(mapUrl)
+
   return (
     <View className="flex flex-row items-center justify-center bg-white rounded-lg shadow-sm shadow-neutral-300 mb-3">
       <View className="flex flex-col items-start justify-center p-3">
         <View className="flex flex-row items-center justify-between">
           <Image
             source={{
-              uri: `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=400&center=lonlat:${ride.destination_longitude},${ride.destination_latitude}&zoom=14&apiKey=${process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY}`,
+              uri: encodedMapUrl,
             }}
-            className="w-[80px] h-[90px] rounded-lg"
+            className="w-[90px] h-[90px] rounded-lg"
           />
 
           <View className="flex flex-col mx-5 gap-y-5 flex-1">
             <View className="flex flex-row items-center gap-x-2">
               <Image source={icons.to} className="w-5 h-5" />
               <Text className="text-md font-JakartaMedium" numberOfLines={1}>
-                {ride.origin_address}
+                {pedido?.ubicacionProveedor.address || "Sin dirección"}
               </Text>
             </View>
 
             <View className="flex flex-row items-center gap-x-2">
               <Image source={icons.point} className="w-5 h-5" />
               <Text className="text-md font-JakartaMedium" numberOfLines={1}>
-                {ride.destination_address}
+                {pedido?.ubicacionCliente.address || "Sin dirección"}
               </Text>
             </View>
           </View>
@@ -36,45 +80,54 @@ const RideCard = ({ ride }: { ride: Ride }) => {
         <View className="flex flex-col w-full mt-5 bg-general-500 rounded-lg p-3 items-start justify-center">
           <View className="flex flex-row items-center w-full justify-between mb-5">
             <Text className="text-md font-JakartaMedium text-gray-500">
-              Date & Time
+              Número de orden
             </Text>
-            <Text className="text-md font-JakartaBold" numberOfLines={1}>
-              {formatDate(ride.created_at)}, {formatTime(ride.ride_time)}
+            <Text className="text-md font-JakartaBold">
+              {pedido?.id || "No status available"}
             </Text>
           </View>
 
           <View className="flex flex-row items-center w-full justify-between mb-5">
             <Text className="text-md font-JakartaMedium text-gray-500">
-              Driver
+              Fecha y Hora
             </Text>
             <Text className="text-md font-JakartaBold">
-              {ride.driver.first_name} {ride.driver.last_name}
+              {pedido?.timestamp
+                ? formatDate(pedido.timestamp as unknown as Timestamp)
+                : "No date available"}
             </Text>
           </View>
 
           <View className="flex flex-row items-center w-full justify-between mb-5">
             <Text className="text-md font-JakartaMedium text-gray-500">
-              Car Seats
+              Estado
             </Text>
             <Text className="text-md font-JakartaBold">
-              {ride.driver.car_seats}
+              {/* Cambiar los colores según el estado del pedido  */}
+              {pedido?.estado === "Aceptado" ? (
+                <Text className="text-blue-500">Aceptado</Text>
+              ) : pedido?.estado === "Pendiente" ? (
+                <Text className="text-yellow-500">Pendiente de aprobación</Text>
+              ) : pedido?.estado === "Llegado" ? (
+                <Text className="text-green-500">Entregado</Text>
+              ) : (
+                <Text className="text-red-500">Cancelado</Text>
+              )}
             </Text>
           </View>
 
           <View className="flex flex-row items-center w-full justify-between">
             <Text className="text-md font-JakartaMedium text-gray-500">
-              Payment Status
+              Valor total
             </Text>
-            <Text
-              className={`text-md capitalize font-JakartaBold ${ride.payment_status === "paid" ? "text-green-500" : "text-red-500"}`}
-            >
-              {ride.payment_status}
+            <Text className="text-md font-JakartaBold">
+              {formatToChileanPesos(pedido?.precio) || "No price available"}
             </Text>
           </View>
         </View>
       </View>
     </View>
-  );
-};
+  )
+}
 
-export default RideCard;
+export default RideCard
