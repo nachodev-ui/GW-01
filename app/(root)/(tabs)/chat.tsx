@@ -7,24 +7,21 @@ import {
   FlatList,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { createProduct } from "../../firebase/createProduct"
-import InputField from "@/components/InputField"
+
+import createProduct from "../../firebase/createProduct"
 import { db } from "@/firebaseConfig"
-import { doc, onSnapshot, deleteDoc } from "firebase/firestore"
+import { doc, onSnapshot } from "firebase/firestore"
 import { getAuth, onAuthStateChanged } from "firebase/auth"
 
-interface Product {
-  marca: "Abastible" | "Gasco" | "Lipigas"
-  formato: "5kg" | "11kg" | "15kg" | "45kg"
-  precio: number
-  stock: number
-}
+import InputField from "@/components/InputField"
+import CustomButton from "@/components/CustomButton"
+
+import { Product } from "@/types/type"
+
 const Chat = () => {
   const [providerProducts, setProviderProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
   const [clientId, setClientId] = useState<string | null>(null)
 
-  // Listen for authenticated user
   useEffect(() => {
     const auth = getAuth()
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -72,14 +69,17 @@ const Chat = () => {
 
     try {
       const newProduct = {
+        id: Math.random().toString(36),
+        nombre: marca + " - " + formato,
         marca,
         formato,
         precio: parseFloat(precio),
         stock: parseInt(stock),
+        imagen: "", // Add a default or actual image URL here
+        quantity: 1,
       }
 
-      const clientId = await createProduct(newProduct)
-      console.log("Producto creado con ID:", clientId)
+      await createProduct(newProduct)
       alert("Producto guardado exitosamente.")
 
       setMarca(null)
@@ -102,7 +102,7 @@ const Chat = () => {
       // Actualizar el estado con la nueva lista de productos
       setProviderProducts(updatedProducts)
 
-      // Aquí puedes agregar la lógica para eliminar el producto de Firestore si es necesario.
+      // Aquí puedes agregar la lógica para eliminar el producto de Firestore si es necesario
 
       alert("Producto eliminado.")
     } catch (error) {
@@ -121,7 +121,7 @@ const Chat = () => {
     <View className="mb-3 relative">
       <TouchableOpacity
         onPress={toggleOpen}
-        className="bg-neutral-100 border border-neutral-300 rounded-full py-2 px-3"
+        className="bg-neutral-100 border border-neutral-300 rounded-full py-3 px-3 my-2"
       >
         <Text className="text-sm font-JakartaSemiBold text-neutral-800">
           {selectedValue || "Selecciona una opción"}
@@ -222,7 +222,7 @@ const Chat = () => {
             keyboardType="numeric"
             value={precio}
             onChangeText={setPrecio}
-            style={{ paddingVertical: 5, paddingHorizontal: 10, fontSize: 11 }}
+            className="py-3 px-3"
           />
 
           <InputField
@@ -230,17 +230,14 @@ const Chat = () => {
             keyboardType="numeric"
             value={stock}
             onChangeText={setStock}
-            style={{ paddingVertical: 5, paddingHorizontal: 10, fontSize: 11 }}
+            className="py-3 px-3"
           />
 
-          <TouchableOpacity
+          <CustomButton
+            title="Guardar Producto"
             onPress={handleSave}
-            className="bg-primary-500 mb-8 mt-5 py-3 rounded-full"
-          >
-            <Text className="text-center text-white font-JakartaSemiBold text-m">
-              Guardar Producto
-            </Text>
-          </TouchableOpacity>
+            className="bg-primary-500 mb-14 mt-4"
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
