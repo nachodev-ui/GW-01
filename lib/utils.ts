@@ -1,5 +1,20 @@
 import { Ride } from "@/types/type"
 
+const months = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+]
+
 export const sortRides = (rides: Ride[]): Ride[] => {
   const result = rides.sort((a, b) => {
     const dateA = new Date(`${a.created_at}T${a.ride_time}`)
@@ -26,23 +41,45 @@ export function formatDate(dateString: string): string {
   const date = new Date(dateString)
   const day = date.getDate()
   const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
   ]
   const month = monthNames[date.getMonth()]
   const year = date.getFullYear()
+  const hours = date.getHours()
+  const minutes = date.getMinutes()
 
-  return `${day < 10 ? "0" + day : day} ${month} ${year}`
+  return `${day < 10 ? "0" + day : day} ${month} ${year} - ${hours}:${minutes}hrs`
+}
+
+export function formatToChileanPesos(price: number): string {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+  }).format(price)
+}
+
+export const getImageForBrand = (marca: string) => {
+  switch (marca) {
+    case "Abastible":
+      return require("@/assets/images/Abastible.png")
+    case "Gasco":
+      return require("@/assets/images/Gasco.png")
+    case "Lipigas":
+      return require("@/assets/images/Lipigas.png")
+    default:
+      return require("@/assets/images/check.png") // Imagen por defecto
+  }
 }
 
 export const decodePolyline = (
