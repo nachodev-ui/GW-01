@@ -4,6 +4,9 @@ import {
   getDoc,
   setDoc,
   collection,
+  getDocs,
+  query,
+  where,
 } from "firebase/firestore"
 import { auth, db } from "@/firebaseConfig"
 import { updateProfile } from "firebase/auth"
@@ -19,17 +22,19 @@ export const getCurrentUser = () => {
   return user
 }
 
-// Obtener los datos del usuario desde Firestore
 export const getUserDataFromDB = async () => {
   const user = auth.currentUser
 
   if (user) {
     const db = getFirestore()
-    const userRef = doc(db, "userProfiles", user.uid) // "users" es la colección de usuarios en Firestore
+    const userRef = doc(db, "userProfiles", user.uid)
     const userDoc = await getDoc(userRef)
 
     if (userDoc.exists()) {
-      return userDoc.data()
+      return {
+        id: user.uid, // Incluye el UID del usuario
+        ...userDoc.data(),
+      }
     } else {
       console.log("No se encontró el documento del usuario")
       return null
@@ -38,6 +43,22 @@ export const getUserDataFromDB = async () => {
     console.log("No hay usuario autenticado")
     return null
   }
+}
+
+// Obtener los proveedores desde Firestore
+export const fetchProvidersUsers = async () => {
+  // Obtener la colección de usuarios de tipo "proveedor"
+  const usersRef = collection(db, "userProfiles")
+  const q = query(usersRef, where("tipoUsuario", "==", "proveedor"))
+
+  const querySnapshot = await getDocs(q)
+  const providers: any[] = []
+
+  querySnapshot.forEach((doc) => {
+    providers.push(doc.data())
+  })
+
+  return providers
 }
 
 // Actualizar los datos del usuario en Firestore
