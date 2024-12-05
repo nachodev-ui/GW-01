@@ -1,13 +1,27 @@
 import { create } from "zustand"
+
 import { User } from "firebase/auth"
+import { collection } from "firebase/firestore"
+import { db } from "@/firebaseConfig"
+
 import { TextInputProps, TouchableOpacityProps } from "react-native"
+import { CartProduct } from "@/services/cart/cart.store"
 
 declare interface Product {
-  id: string
+  id: string | null
+  nombre: string
   marca: "Abastible" | "Gasco" | "Lipigas"
   formato: "5kg" | "11kg" | "15kg" | "45kg"
   precio: number
   stock: number
+  quantity: number
+}
+
+declare interface Mensaje {
+  id: string
+  texto: string
+  remitenteId: string
+  timestamp: Date
 }
 
 declare interface Driver {
@@ -18,21 +32,6 @@ declare interface Driver {
   car_image_url: string
   car_seats: number
   rating: number
-}
-
-declare interface MarkerData {
-  latitude: number
-  longitude: number
-  id: number
-  title: string
-  profile_image_url: string
-  car_image_url: string
-  car_seats: number
-  rating: number
-  first_name: string
-  last_name: string
-  time?: number
-  price?: string
 }
 
 declare interface MapProps {
@@ -66,14 +65,28 @@ declare interface Ride {
 declare interface ButtonProps extends TouchableOpacityProps {
   title: string
   bgVariant?: "primary" | "secondary" | "danger" | "outline" | "success"
-  textVariant?: "primary" | "default" | "secondary" | "danger" | "success"
+  textVariant?:
+    | "primary"
+    | "default"
+    | "secondary"
+    | "danger"
+    | "success"
+    | "cartButton"
   IconLeft?: React.ComponentType<any>
   IconRight?: React.ComponentType<any>
   className?: string
 }
 
 declare interface ProviderFormProps {
-  onSubmit: (providerData: {
+  initialValues: {
+    patente: string
+    distribuidora: string
+    direccion: string
+    estado: string
+    telefonoCelular?: string
+    telefonoFijo?: string
+  }
+  handleSubmit: (providerData: {
     patente: string
     distribuidora: string
     direccion: string
@@ -121,7 +134,7 @@ declare interface PaymentProps {
 
 declare interface UserProfile {
   user: any | null
-  uid: string
+  id: string
   tipoUsuario: string
   firstName: string
   lastName: string
@@ -134,6 +147,7 @@ declare interface ProviderProfile extends UserProfile {
   patente: string
   distribuidora: string
   direccion: string
+  estado: string
   telefonoCelular?: string
   telefonoFijo?: string
 }
@@ -172,24 +186,72 @@ declare interface UserStore {
 }
 
 declare interface LocationState {
-  userLocation: { latitude: number; longitude: number } | null
-  providersLocations: Array<{ id: string; latitude: number; longitude: number }>
+  userLocation: { latitude: number; longitude: number; address: string } | null
+  providersLocations: Array<{
+    address: string
+    id: string
+    latitude: number
+    longitude: number
+  }>
   selectedProviderLocation: {
     id: string
     latitude: number
     longitude: number
+    address?: string // Dirección del proveedor seleccionado (opcional)
   } | null
-  setUserLocation: (location: { latitude: number; longitude: number }) => void
+  setUserLocation: (location: {
+    latitude: number
+    longitude: number
+    address?: string
+  }) => void
   setProvidersLocations: (
-    locations: Array<{ id: string; latitude: number; longitude: number }>
+    locations: Array<{
+      id: string
+      latitude: number
+      longitude: number
+      address?: string
+    }>
   ) => void
   setSelectedProviderLocation: (location: {
     id: string
     latitude: number
     longitude: number
+    address?: string
   }) => void
+  clearSelectedProviderLocation: () => void
 }
 
+interface Pedido {
+  id: string
+  clienteId: string
+  nombreCliente: string
+  conductorId: string
+  ubicacionProveedor: {
+    address: string
+    latitude: number
+    longitude: number
+  }
+  ubicacionCliente: {
+    address: string
+    latitude?: number
+    longitude?: number
+  }
+  producto: CartProduct[]
+  precio: number
+  estado: "Aceptado" | "Pendiente" | "Rechazado" | "Llegado"
+  timestamp: Date
+}
+declare interface PedidoState {
+  pedidos: Pedido[]
+  loading: boolean
+  pedidoActual: Pedido | null
+  setPedidoActual: (pedido: Pedido) => void
+  setPedidos: (pedidos: Pedido[]) => void
+  crearNuevoPedido: (
+    pedidoData: Omit<Pedido, "id" | "timestamp">
+  ) => Promise<void>
+  fetchPedidosStore: () => Promise<void>
+}
 declare interface DriverStore {
   drivers: MarkerData[]
   selectedDriver: number | null
@@ -197,7 +259,6 @@ declare interface DriverStore {
   setDrivers: (drivers: MarkerData[]) => void
   clearSelectedDriver: () => void
 }
-
 declare interface DriverCardProps {
   item: MarkerData
   selected: number
