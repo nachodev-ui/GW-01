@@ -1,113 +1,93 @@
 import React, { useState } from "react"
-import { Text, Button, View, StyleSheet } from "react-native"
+import { Text, View } from "react-native"
 
-import InputField from "./InputField"
+import InputField from "@/components/InputField"
+import CustomButton from "@/components/CustomButton"
+
 import { ProviderFormProps } from "@/types/type"
 
-const ProviderForm = ({ onSubmit, onCancel }: ProviderFormProps) => {
-  const [patente, setPatente] = useState("")
-  const [distribuidora, setDistribuidora] = useState("")
-  const [direccion, setDireccion] = useState("")
-  const [estado, setEstado] = useState("disponible")
-  const [telefonoCelular, setTelefonoCelular] = useState("")
-  const [telefonoFijo, setTelefonoFijo] = useState("")
-
-  const handleSubmit = () => {
-    console.log("Datos enviados:", {
-      patente,
-      distribuidora,
-      direccion,
-      estado,
-      telefonoCelular,
-      telefonoFijo,
-    })
-    onSubmit({
-      patente,
-      distribuidora,
-      direccion,
-      estado,
-      telefonoCelular,
-      telefonoFijo,
-    })
-  }
+const ProviderForm = ({
+  onCancel,
+  handleSubmit,
+  initialValues,
+}: ProviderFormProps) => {
+  const [patente, setPatente] = useState(initialValues.patente || "")
+  const [distribuidora, setDistribuidora] = useState(
+    initialValues.distribuidora || ""
+  )
+  const [direccion, setDireccion] = useState(initialValues.direccion || "")
+  const [telefonoCelular, setTelefonoCelular] = useState(
+    initialValues.telefonoCelular || ""
+  )
+  const [telefonoFijo, setTelefonoFijo] = useState(
+    initialValues.telefonoFijo || ""
+  )
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title} className="font-JakartaExtraBold text-xl">
-        Formulario Proveedores
+    <View className="w-full">
+      <Text className="text-xl font-bold mb-4 text-center">
+        Registro de Proveedor
       </Text>
-
       <InputField
         label="Patente"
         value={patente}
         onChangeText={setPatente}
-        containerStyle="mb-4"
-        inputStyle="p-3"
-        placeholder="Ingresa la patente"
+        containerStyle="w-full"
+        inputStyle="p-3.5"
       />
-
       <InputField
         label="Distribuidora"
         value={distribuidora}
         onChangeText={setDistribuidora}
-        containerStyle="mb-4"
-        inputStyle="p-3"
-        placeholder="Nombre de la distribuidora"
+        containerStyle="w-full"
+        inputStyle="p-3.5"
       />
-
       <InputField
         label="Dirección"
         value={direccion}
         onChangeText={setDireccion}
-        containerStyle="mb-4"
-        inputStyle="p-3"
-        placeholder="Dirección del proveedor"
+        containerStyle="w-full"
+        inputStyle="p-3.5"
       />
-
       <InputField
-        label="Teléfono Celular (opcional)"
+        label="Teléfono Celular"
         value={telefonoCelular}
         onChangeText={setTelefonoCelular}
-        containerStyle="mb-4"
-        inputStyle="p-3"
+        containerStyle="w-full"
+        inputStyle="p-3.5"
         keyboardType="phone-pad"
-        placeholder="Teléfono celular"
       />
-
       <InputField
-        label="Teléfono Fijo (opcional)"
+        label="Teléfono Fijo"
         value={telefonoFijo}
         onChangeText={setTelefonoFijo}
-        containerStyle="mb-4"
-        inputStyle="p-3"
+        containerStyle="w-full"
+        inputStyle="p-3.5"
         keyboardType="phone-pad"
-        placeholder="Teléfono fijo"
       />
-
-      <View style={styles.buttons}>
-        <Button title="Cancelar" onPress={onCancel} color="red" />
-        <Button title="Guardar" onPress={handleSubmit} />
+      <View className="flex-row justify-between mt-4">
+        <CustomButton
+          title="Cancelar"
+          onPress={onCancel}
+          className="bg-neutral-400 py-3 rounded-lg flex-1 mr-2"
+        />
+        <CustomButton
+          title="Enviar"
+          onPress={() =>
+            handleSubmit({
+              patente,
+              distribuidora,
+              direccion,
+              estado: "disponible",
+              telefonoCelular,
+              telefonoFijo,
+            })
+          }
+          className="bg-slate-500 py-3 rounded-lg flex-1 ml-2"
+        />
       </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-  buttons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-  },
-})
 
 export default ProviderForm
