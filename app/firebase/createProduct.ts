@@ -5,7 +5,7 @@ import { Product } from "@/types/type" // Ajusta la ruta según tu proyecto
 const db = getFirestore()
 const auth = getAuth()
 
-export const createProduct = async (
+const createProduct = async (
   product: Omit<Product, "id" | "userId">
 ): Promise<void> => {
   try {
@@ -33,3 +33,5 @@ export const createProduct = async (
     throw new Error("No se pudo guardar el producto.")
   }
 }
+
+export default createProduct
