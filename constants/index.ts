@@ -31,6 +31,9 @@ import onboarding1 from "@/assets/images/onboarding1.png"
 import onboarding2 from "@/assets/images/onboarding2.png"
 import onboarding3 from "@/assets/images/onboarding3.png"
 import signUpCar from "@/assets/images/signup-car.jpg"
+import abastible from "@/assets/images/Abastible.png"
+import gasco from "@/assets/images/Gasco.png"
+import lipigas from "@/assets/images/Lipigas.png"
 
 export const images = {
   onboarding1,
@@ -41,6 +44,9 @@ export const images = {
   check,
   noResult,
   message,
+  gasco,
+  lipigas,
+  abastible,
 }
 
 export const icons = {
@@ -98,3 +104,20 @@ export const onboarding = [
 export const data = {
   onboarding,
 }
+
+export const marcaImages: { [key: string]: string } = {
+  gasco: images.gasco,
+  lipigas: images.lipigas,
+  abastible: images.abastible,
+}
+
+export const getProductImage = (marca: "Abastible" | "Gasco" | "Lipigas") => {
+  return marcaImages[marca] || images.check // Usa una imagen por defecto si no hay coincidencia
+}
+
+export const MENSAJES_RAPIDOS = [
+  "Estoy afuera",
+  "Llego en 5 minutos",
+  "Gracias",
+  "Lo siento, voy tarde",
+] as const
