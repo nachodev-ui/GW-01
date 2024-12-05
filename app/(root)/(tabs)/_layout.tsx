@@ -11,32 +11,40 @@ const TabIcon = ({
   source,
   focused,
   role,
+  shouldRender = true, // Por defecto se renderiza
 }: {
   source: ImageSourcePropType
   focused: boolean
   role: string | null
-}) => (
-  <View
-    className={`flex justify-center items-center rounded-full ${
-      focused ? "bg-black" : ""
-    }`}
-  >
+  shouldRender?: boolean
+}) => {
+  if (!shouldRender) {
+    return null // No renderizar el ícono si shouldRender es falso
+  }
+
+  return (
     <View
-      className={`rounded-full w-12 h-12 flex justify-center items-center ${
-        focused
-          ? { usuario: "bg-[#77BEEA]", proveedor: "bg-success-300" }[role!] ||
-            ""
-          : ""
+      className={`flex justify-center items-center rounded-full ${
+        focused ? "bg-black" : ""
       }`}
     >
-      <Image
-        source={source}
-        resizeMode="contain"
-        style={{ tintColor: "white", width: 28, height: 28 }}
-      />
+      <View
+        className={`rounded-full w-12 h-12 flex justify-center items-center ${
+          focused
+            ? { usuario: "bg-[#77BEEA]", proveedor: "bg-success-300" }[role!] ||
+              ""
+            : ""
+        }`}
+      >
+        <Image
+          source={source}
+          resizeMode="contain"
+          style={{ tintColor: "white", width: 28, height: 28 }}
+        />
+      </View>
     </View>
-  </View>
-)
+  )
+}
 
 export default function Layout() {
   const [role, setRole] = useState<string | null>(null)
@@ -109,6 +117,7 @@ export default function Layout() {
             source={icons.chat}
             focused={isFocused("chat")}
             role={role}
+            shouldRender={role === "proveedor"} // No renderizar el ícono si el rol es proveedor
           />
         </TabTrigger>
         <TabTrigger
