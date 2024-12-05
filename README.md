@@ -6,6 +6,8 @@
 src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff" alt="typescript" / >
     <img src="https://img.shields.io/badge/Firebase-039BE5?logo=Firebase&logoColor=white" alt="firebase" /> 
     <img src="https://img.shields.io/badge/Node.js-6DA55F?logo=node.js&logoColor=white" alt="Node.js" />
+    <img
+src="https://img.shields.io/badge/Tailwind%20CSS-%2338B2AC.svg?logo=tailwind-css&logoColor=white" alt="tailwindcss" />
   </div>
 
 <h3 align="center">Gasway Application</h3>
