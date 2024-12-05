@@ -10,18 +10,14 @@ import {
   ActivityIndicator,
   Modal,
   Button,
-  Alert,
-  AppState,
-  AppStateStatus,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import Map from "@/components/Map"
 import RideCard from "@/components/RideCard"
 
-import { useFetch } from "@/lib/fetch"
-import { Ride } from "@/types/type"
-import { useLocationStore, useUserStore } from "@/store"
+import { Pedido } from "@/types/type"
+import { useLocationStore, usePedidoStore } from "@/store"
 import { icons, images } from "@/constants"
 
 import { db } from "../../../firebaseConfig" // Ajusta la ruta si es necesario
@@ -34,28 +30,31 @@ import {
   where,
   onSnapshot,
   updateDoc,
-  addDoc,
 } from "firebase/firestore"
+import { getCurrentUser } from "@/lib/firebase"
+import { handleKhipuPayment } from "@/services/khipu/khipu.handler"
+
+import { useKhipuStore } from "@/services/khipu/khipu.store"
+import { isLoading } from "expo-font"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import PedidoModal from "@/components/PedidoModal"
 
 const Home = () => {
-  const { tipoUsuario } = useUserStore()
-  const { setUserLocation, setSelectedProviderLocation } = useLocationStore()
+  const { setUserLocation } = useLocationStore()
+  const { pedidos, fetchPedidosStore } = usePedidoStore()
 
-  const [appState, setAppState] = useState<AppStateStatus>(
-    AppState.currentState
-  )
+  const paymentId = useKhipuStore((state) => state.paymentId)
 
   const [user, setUser] = useState<User | null>(null)
   const [hasPermission, setHasPermission] = useState<boolean>(false)
 
+  // Separar la lógica de estados en custom hooks
   const [pedidoActual, setPedidoActual] = useState<any>(null)
   const [pedidoModalVisible, setPedidoModalVisible] = useState<boolean>(false)
 
-  const [refreshing, setRefreshing] = useState<boolean>(false)
-  const [loadingPayment, setLoadingPayment] = useState<boolean>(false)
-
-  // Obtener datos de paseos recientes
-  const { data: recentRides, loading } = useFetch<Ride[]>(`/(api)/ride/99`)
+  useEffect(() => {
+    fetchPedidosStore()
+  }, [fetchPedidosStore])
 
   useEffect(() => {
     const fetchLocationAndUserData = async () => {
@@ -76,14 +75,13 @@ const Home = () => {
         setUserLocation({ latitude, longitude })
 
         // Obtener el usuario autenticado
-        const auth = getAuth()
-        const currentUser = auth.currentUser
+        const currentUser = getCurrentUser()
 
         if (currentUser) {
           setUser(currentUser)
           const uid = currentUser.uid
 
-          // Guardar la ubicaci贸n en Firestore
+          // Guardar la ubicación en Firestore
           await saveUserLocation(uid, latitude, longitude)
         } else {
           console.error("No user is signed in.")
@@ -96,100 +94,34 @@ const Home = () => {
     fetchLocationAndUserData()
   }, [setUserLocation])
 
-  // Función para guardar la ubicación en Firestore
   const saveUserLocation = async (
     uid: string,
     latitude: number,
     longitude: number
   ) => {
     try {
-      await setDoc(doc(db, "userLocations", uid), {
+      const [locationData] = await Location.reverseGeocodeAsync({
         latitude,
         longitude,
-        timestamp: new Date(),
       })
-      console.log("Ubicación del usuario añadida:", uid)
-    } catch (err) {
-      console.error("Error adding document:", err)
-    }
-  }
-
-  const removeProviderLocation = async (uid: string) => {
-    if (tipoUsuario === "proveedor") {
-      try {
+      if (locationData) {
+        const address = `${locationData.name}, ${locationData.street}, ${locationData.city}, ${locationData.region}, ${locationData.country}`
         await setDoc(doc(db, "userLocations", uid), {
-          latitude: null,
-          longitude: null,
+          latitude,
+          longitude,
+          address,
           timestamp: new Date(),
         })
 
-        console.log("Provider location removed")
-      } catch (error) {
-        console.error("Error removing provider location:", error)
-      }
-    }
-  }
+        // Actualizar el estado con la ubicación
+        setUserLocation({ latitude, longitude, address })
 
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (
-        appState.match(/active/) &&
-        nextAppState.match(/inactive|background/)
-      ) {
-        console.log("App has come to the foreground!")
-
-        // Remove provider location when the app is in the background
-        if (tipoUsuario === "proveedor" && user) {
-          removeProviderLocation(user.uid)
-        }
-      }
-      setAppState(nextAppState)
-    }
-    const subscription = AppState.addEventListener(
-      "change",
-      handleAppStateChange
-    )
-
-    return () => {
-      subscription.remove()
-    }
-  }, [appState, user])
-
-  const handlePaymentRequest = async () => {
-    setLoadingPayment(true)
-
-    const url = "https://gw-back.onrender.com/api/create"
-    const body = {
-      amount: 3000,
-      currency: "CLP",
-      subject: "Cobro de prueba desde Render",
-    }
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      })
-
-      const data = await response.json()
-      if (response.ok) {
-        Alert.alert("Pago exitoso", "El pago fue creado correctamente.")
-        console.log("Respuesta del pago:", data)
+        console.log("Ubicación del usuario añadida:", uid)
       } else {
-        Alert.alert("Error en el pago", `Error: ${data.error}`)
-        console.error("Error al crear el pago:", data)
+        console.log("No se pudo obtener la dirección")
       }
-    } catch (error) {
-      Alert.alert(
-        "Error en la solicitud",
-        "Hubo un problema al realizar la solicitud."
-      )
-      console.error("Error en la solicitud:", error)
-    } finally {
-      setLoadingPayment(false)
+    } catch (err) {
+      console.error("Error al agregar la ubicación del usuario:", err)
     }
   }
 
@@ -210,10 +142,12 @@ const Home = () => {
       const unsubscribe = onSnapshot(pedidosQuery, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           if (change.type === "added") {
-            // Establece el pedido actual con todos los datos del documento
-            setPedidoActual({ id: change.doc.id, ...change.doc.data() })
-            setPedidoModalVisible(true)
-            console.log("Nuevo pedido recibido:", change.doc.data())
+            // Evitar que el modal se muestre varias veces para el mismo pedido
+            if (!pedidoActual || pedidoActual.id !== change.doc.id) {
+              setPedidoActual({ id: change.doc.id, ...change.doc.data() })
+              setPedidoModalVisible(true)
+              console.log("Nuevo pedido recibido:", change.doc.data())
+            }
           }
         })
       })
@@ -266,55 +200,47 @@ const Home = () => {
     }
   }
 
+  const handlePaymentRequest = async () => {
+    await handleKhipuPayment({
+      amount: 2590,
+      currency: "CLP",
+      subject: "Pago por pedido de gas",
+      userId: user?.uid,
+    })
+  }
+
+  const handleTestPedido = () => {
+    const pedidoPrueba = {
+      id: "test-" + Date.now(),
+      cliente: "Cliente de Prueba",
+      producto: "Gas 15kg",
+      precio: 25000,
+      cantidad: 1,
+      estado: "Pendiente",
+      ubicacionCliente: {
+        lat: -33.45694,
+        lng: -70.64827,
+        address: "Santiago, Chile",
+      },
+      telefonoCliente: "+56912345678",
+    }
+
+    setPedidoActual(pedidoPrueba)
+    setPedidoModalVisible(true)
+  }
+
   return (
     <SafeAreaView className="bg-general-500">
-      {pedidoActual?.estado === "pendiente" ? (
-        <Modal
-          transparent={true}
-          animationType="slide"
-          visible={pedidoModalVisible}
-          onRequestClose={() => setPedidoModalVisible(false)}
-        >
-          <View
-            style={{
-              flex: 1,
-              justifyContent: "center",
-              alignItems: "center",
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-            }}
-          >
-            <View
-              style={{
-                width: 300,
-                padding: 20,
-                backgroundColor: "white",
-                borderRadius: 10,
-              }}
-            >
-              <Text>Pedido recibido</Text>
-              <Text>ID del pedido: {pedidoActual?.id}</Text>
-              <Text>Cliente: {pedidoActual?.cliente}</Text>
-              <Text>Producto: {pedidoActual?.producto}</Text>
-              <Text>Cantidad: {pedidoActual?.cantidad}</Text>
-              <Text>Precio: ${pedidoActual?.precio}</Text>
-              <Text>
-                Tel茅fono del cliente: {pedidoActual?.telefonoCliente}
-              </Text>
-              <Text>Ubicaci贸n:</Text>
-              <Text>Latitud: {pedidoActual?.ubicacionCliente?.lat}</Text>
-              <Text>Longitud: {pedidoActual?.ubicacionCliente?.lng}</Text>
-              <Text>Direcci贸n: {pedidoActual?.direccion}</Text>
-              <Button title="Aceptar" onPress={handleAceptarPedido} />
-              <Button title="Rechazar" onPress={handleRechazarPedido} />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
+      <PedidoModal
+        visible={pedidoModalVisible}
+        onClose={() => setPedidoModalVisible(false)}
+        pedido={pedidoActual}
+      />
       {hasPermission ? (
         <FlatList
-          data={recentRides?.slice(0, 5)}
-          renderItem={({ item }) => <RideCard ride={item} />}
-          keyExtractor={(item, index) => index.toString()}
+          data={pedidos?.slice(0, 4)}
+          renderItem={({ item }) => <RideCard pedido={item} />}
+          keyExtractor={(item: Pedido) => item.id}
           className="px-5"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -322,7 +248,7 @@ const Home = () => {
           }}
           ListEmptyComponent={() => (
             <View className="flex flex-col items-center justify-center">
-              {!loading ? (
+              {!isLoading ? (
                 <>
                   <Image
                     source={images.noResult}
@@ -345,9 +271,9 @@ const Home = () => {
                 </Text>
                 <TouchableOpacity
                   onPress={handleSignOut}
-                  className="justify-center items-center w-10 h-10 rounded-full bg-white"
+                  className="justify-center items-center w-10 h-10 rounded-full bg-gray-200"
                 >
-                  <Image source={icons.out} className="w-4 h-4" />
+                  <Image source={icons.out} className="w-5 h-5" />
                 </TouchableOpacity>
               </View>
               <Text className="text-xl font-JakartaBold mt-5 mb-3">
@@ -357,24 +283,37 @@ const Home = () => {
                 <Map />
               </View>
 
+              <TouchableOpacity
+                onPress={handleTestPedido}
+                className="bg-blue-500 p-4 rounded-lg my-4"
+              >
+                <Text className="text-white text-center font-JakartaBold">
+                  Simular Pedido (Prueba)
+                </Text>
+              </TouchableOpacity>
+
+              {/* <CustomButton
+                title="Realizar el pago"
+                onPress={() => handlePaymentRequest()}
+                className="mt-4"
+                bgVariant="success"
+              />
+              <CustomButton
+                title="Estado del pago"
+                onPress={() => {
+                  handleCheckPaymentStatus()
+                }}
+              /> */}
               <Text className="text-xl font-JakartaBold mt-5 mb-3">
                 Pedidos recientes
               </Text>
-
-              <Button
-                title={
-                  loadingPayment ? "Cargando..." : "Realizar pago de prueba"
-                }
-                onPress={handlePaymentRequest}
-                disabled={loadingPayment}
-              />
             </>
           }
         />
       ) : (
         <View className="flex flex-col items-center justify-center">
           <Text className="text-lg font-JakartaBold">
-            Por favor, otorga permisos de ubicaci贸n para continuar.
+            Por favor, otorga permisos de ubicación para continuar.
           </Text>
         </View>
       )}
