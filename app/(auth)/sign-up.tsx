@@ -59,7 +59,6 @@ const SignUp = () => {
       await sendEmailVerification(user)
 
       await setDoc(doc(db, "userProfiles", user.uid), {
-        name: form.name,
         email: form.email,
         tipoUsuario: "usuario", // Campo fijo que no será modificable
       })
@@ -80,22 +79,39 @@ const SignUp = () => {
 
   const onPressVerify = async () => {
     try {
-      // Primero, crea la cuenta del usuario si no lo has hecho antes
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        form.email,
-        form.password
-      )
-      const user = userCredential.user
+      const user = auth.currentUser
+      if (user?.emailVerified) {
+        // Si el correo ya está verificado, crea el documento con los datos adicionales
+        await setDoc(doc(db, "userProfiles", user.uid), {
+          auth,
+          tipoUsuario: "usuario",
+        })
 
-      // Envía el enlace de verificación al correo electrónico del usuario
-      await sendEmailVerification(user)
+        // Mostrar un mensaje de éxito
+        console.log("Verification email sent. Please check your inbox.")
+        setVerification({ ...verification, state: "emailSent" })
+        showSecondModal()
+      } else {
+        setVerification({
+          ...verification,
+          error: "Verifica tu correo antes de continuar.",
+          state: "failed",
+        })
+      }
 
-      // Si deseas, puedes mostrar un mensaje de éxito
-      console.log("Verification email sent. Please check your inbox.")
+      // Actualizar el estado de verificación a "completado"
+      setVerification({ ...verification, state: "completed" })
 
-      // También puedes actualizar el estado de verificación
-      setVerification((prev) => ({ ...prev, state: "emailSent" }))
+      // Mostrar un mensaje de éxito
+      console.log("Verification successful. You can now login.")
+
+      // Cerrar el modal
+      setFirstModalVisible(false)
+
+      // Navegar al siguiente paso
+      setTimeout(() => {
+        router.push("/home")
+      }, 500)
     } catch (err: any) {
       console.log("Error during verification", err)
       setVerification({
