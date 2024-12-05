@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react"
-import { ActivityIndicator, Text, View } from "react-native"
+import React, { useEffect, useState, useCallback } from "react"
+import { Text, View, Platform } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
 import MapViewDirections from "react-native-maps-directions"
 
-import { auth, db } from "@/firebaseConfig"
+import { db } from "@/firebaseConfig"
 import {
   query,
   where,
@@ -16,7 +16,6 @@ import {
   QuerySnapshot,
 } from "firebase/firestore"
 
-import * as Location from "expo-location"
 import { router } from "expo-router"
 
 import { getCurrentUser } from "@/lib/firebase"
@@ -30,15 +29,6 @@ const Map = () => {
       console.log("No hay usuario autenticado")
     }
   }, [])
-
-  // Va antes de toda la lógica de renderizado para evitar errores
-  if (!user) {
-    return (
-      <View className="flex justify-between items-center w-full">
-        <Text>No hay usuario autenticado</Text>
-      </View>
-    )
-  }
 
   const {
     userLocation,
@@ -55,37 +45,57 @@ const Map = () => {
   const currentUserId: string = user?.uid
   const [currentUserRole, setCurrentUserRole] = useState<string>("")
 
-  const requestLocationPermission = async () => {
+  const requestUserLocationFromFirebase = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== "granted") {
-        setError(
-          "Permiso de ubicación denegado. Activa los permisos en la configuración."
-        )
-        setLoading(false)
-        return
+      setLoading(true)
+      const userLocationDocRef = doc(db, "userLocations", user.uid) // Reemplaza userId con la variable correspondiente a tu usuario
+      const userLocationSnapshot = await getDoc(userLocationDocRef)
+
+      if (userLocationSnapshot.exists()) {
+        const userLocationData = userLocationSnapshot.data()
+        console.log("Datos de ubicación del usuario: ", userLocationData)
+        // Verifica que los datos existan y estén completos
+        if (
+          userLocationData.latitude &&
+          userLocationData.longitude &&
+          userLocationData.address
+        ) {
+          setUserLocation({
+            latitude: userLocationData.latitude,
+            longitude: userLocationData.longitude,
+            address: userLocationData.address,
+          })
+          console.log(
+            "Ubicación del usuario desde Firebase:",
+            userLocationData.address
+          )
+        } else {
+          console.warn("La ubicación del usuario está incompleta en Firebase.")
+          setError("La ubicación del usuario no está disponible.")
+        }
+      } else {
+        console.warn("No se encontró la ubicación del usuario en Firebase.")
+        setError("No se encontró la ubicación del usuario en Firebase.")
       }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      })
-
-      console.log("Ubicación del usuario: ", location)
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      })
     } catch (err: any) {
-      console.error("Error al obtener la ubicación: ", err)
-      setError("Error al obtener la ubicación: " + err.message)
+      console.error(
+        "Error al obtener la ubicación del usuario desde Firebase: ",
+        err
+      )
+      setError(
+        "Error al obtener la ubicación del usuario desde Firebase: " +
+          err.message
+      )
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    requestLocationPermission()
-  }, [])
+    if (currentUserId) {
+      requestUserLocationFromFirebase
+    }
+  }, [user.uid])
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -97,7 +107,7 @@ const Map = () => {
 
         if (userProfileDoc.exists()) {
           console.log(
-            "Perfil de usuario encontrado: ",
+            "Perfil de usuario encontrado (Map.tsx): ",
             userProfileDoc.data().tipoUsuario
           )
           setCurrentUserRole(userProfileDoc.data().tipoUsuario)
@@ -113,9 +123,15 @@ const Map = () => {
       }
     }
     fetchUserRole()
-  }, [currentUserId])
+  }, [])
 
-  const fetchProviderLocations = async () => {
+  useEffect(() => {
+    if (userLocation) {
+      setLoading(false)
+    }
+  }, [userLocation])
+
+  const fetchProviderLocations = useCallback(async () => {
     try {
       const userProfilesRef: CollectionReference = collection(
         db,
@@ -126,19 +142,18 @@ const Map = () => {
         where("tipoUsuario", "==", "proveedor")
       )
 
-      // Obtener los documentos de los proveedores en un solo lote
       const providerSnapshots: QuerySnapshot<DocumentData> =
         await getDocs(providerQuery)
       const providerIds: string[] = providerSnapshots.docs.map((doc) => doc.id)
 
       const locationsPromises = providerIds.map(async (id) => {
         const locationDoc = await getDoc(doc(db, "userLocations", id))
-
         if (locationDoc.exists()) {
           return {
             id,
             latitude: parseFloat(locationDoc.data().latitude),
             longitude: parseFloat(locationDoc.data().longitude),
+            address: locationDoc.data().address,
           }
         }
         return null
@@ -156,16 +171,16 @@ const Map = () => {
       )
       setError("Error al cargar las ubicaciones de los proveedores: " + error)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchProviderLocations()
-  }, [])
+  }, [fetchProviderLocations])
 
-  if (loading) {
+  if (!currentUserId) {
     return (
       <View className="flex justify-between items-center w-full">
-        <ActivityIndicator size="small" color="#000" />
+        <Text>No hay usuario autenticado</Text>
       </View>
     )
   }
@@ -181,17 +196,27 @@ const Map = () => {
   const handleMarkerPress = (
     providerUid: string,
     latitude: number,
-    longitude: number
+    longitude: number,
+    address: string
   ) => {
     console.log("Proveedor seleccionado: ", providerUid)
     console.log("Ubicación del proveedor seleccionado: ", latitude, longitude)
-    setSelectedProviderLocation({ id: providerUid, latitude, longitude })
+    console.log("Dirección del proveedor seleccionado: ", address)
+    console.log("Direccion del usuario: ", userLocation?.address)
+    setSelectedProviderLocation({
+      id: providerUid,
+      latitude,
+      longitude,
+      address,
+    })
     router.push({
       pathname: "/(root)/find-ride",
       params: {
         providerUid,
         destinationLatitude: latitude,
         destinationLongitude: longitude,
+        providerAddress: address,
+        userAddress: userLocation?.address,
       },
     })
   }
@@ -209,15 +234,15 @@ const Map = () => {
       provider={PROVIDER_DEFAULT}
       className="w-full h-full rounded-2xl"
       tintColor="black"
-      mapType="mutedStandard"
+      mapType={Platform.OS === "android" ? "standard" : "mutedStandard"}
       showsPointsOfInterest={false}
       showsUserLocation={true}
       userInterfaceStyle="light"
       region={{
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
       }}
     >
       <Marker
@@ -227,6 +252,7 @@ const Map = () => {
         }}
         title="Mi ubicación"
         pinColor="blue"
+        zIndex={-1}
       />
 
       {/* Marker para los proveedores */}
@@ -238,12 +264,12 @@ const Map = () => {
               latitude: location.latitude,
               longitude: location.longitude,
             }}
-            title={`Proveedor ${location.id}`}
             onPress={() =>
               handleMarkerPress(
                 location.id,
                 location.latitude,
-                location.longitude
+                location.longitude,
+                location.address || "Dirección no disponible"
               )
             }
           />
