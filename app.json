@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Gasway",
-    "slug": "Gasway",
+    "slug": "gw-notifications",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -13,14 +13,20 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.tuempresa.gasway",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
+      "package": "com.tuempresa.gasway",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": ["NOTIFICATIONS", "VIBRATE"]
     },
     "web": {
       "bundler": "metro",
@@ -35,10 +41,27 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/sounds/notification.wav"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": "https://uber.dev/"
+      },
+      "eas": {
+        "projectId": "0deebdbf-64b8-4b9c-b081-a2067f466b19"
+      }
+    },
+    "owner": "nacho.dev"
   }
 }
