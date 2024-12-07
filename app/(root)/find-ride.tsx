@@ -9,22 +9,20 @@ import {
 } from "react-native"
 import { useCallback, useEffect, useState } from "react"
 
-import RideLayout from "@/components/RideLayout"
-import CustomButton from "@/components/CustomButton"
-import CartIcon from "@/components/CartIcon"
-
 import { db } from "@/firebaseConfig"
 import {
   doc,
   getDoc,
   onSnapshot,
-  addDoc,
-  collection,
   setDoc,
   DocumentData,
   updateDoc,
 } from "firebase/firestore"
 import { getAuth, onAuthStateChanged, User } from "firebase/auth"
+
+import RideLayout from "@/components/RideLayout"
+import CustomButton from "@/components/CustomButton"
+import CartIcon from "@/components/CartIcon"
 
 import { useLocationStore, usePedidoStore } from "@/store"
 import { Product, ProviderProfile } from "@/types/type"
@@ -34,19 +32,12 @@ import { useCartStore } from "@/services/cart/cart.store"
 import { formatToChileanPesos, getImageForBrand } from "@/lib/utils"
 
 const FindRide = () => {
-  const { userLocation, selectedProviderLocation, setUserLocation } =
-    useLocationStore()
+  const { selectedProviderLocation, setUserLocation } = useLocationStore()
   const { items, addItem } = useCartStore((state) => state)
-  const { pedidoActual, setPedidoActual } = usePedidoStore()
 
-  const { providerUid, providerAddress, userAddress } =
-    useLocalSearchParams() as unknown as {
-      providerUid: string
-      destinationLatitude: number
-      destinationLongitude: number
-      providerAddress: string
-      userAddress: string
-    }
+  const { providerUid } = useLocalSearchParams() as {
+    providerUid: string
+  }
 
   const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0)
 
@@ -64,226 +55,142 @@ const FindRide = () => {
   const [loadingOrder, setLoadingOrder] = useState<boolean>(false)
   const [loadingProducts, setLoadingProducts] = useState<boolean>(true)
 
-  useEffect(() => {
-    const authFirebase = getAuth()
-
-    const handleAuthChange = async (user: User | null) => {
-      if (user) {
-        setClientId(user.uid)
-
-        // Obtén la ubicación del estado global
-        const { userLocation, setUserLocation } = useLocationStore.getState()
-
-        if (userLocation) {
-          // Usa la ubicación del estado global
-          setUserLocation(userLocation)
-        } else {
-          // Consulta Firebase solo si no tienes la ubicación en el estado global
-          const userLocationRef = doc(db, "userLocations", user.uid)
-          try {
-            const docSnap = await getDoc(userLocationRef)
-            if (docSnap.exists()) {
-              const { latitude, longitude } = docSnap.data()
-              setUserLocation({ latitude, longitude })
-            } else {
-              console.log("No se encontró la ubicación del usuario.")
-            }
-          } catch (error) {
-            console.error("Error al obtener la ubicación del usuario:", error)
-          }
-        }
-      } else {
-        // El usuario no está autenticado
-        setClientId(null)
-        setUserLocation({ latitude: 0, longitude: 0 })
-      }
-    }
-
-    const unsubscribe = onAuthStateChanged(authFirebase, handleAuthChange)
-
-    return () => unsubscribe()
-  }, [userLocation])
-
   const fetchProviderData = useCallback(() => {
-    const providerDocRef = doc(db, "providerProducts", providerUid)
-    const providerProfileDocRef = doc(db, "userProfiles", providerUid)
+    if (!providerUid) return () => {}
 
-    // Set loading state to true initially
     setLoadingProducts(true)
+    const providerDocRef = doc(db, "providerProducts", providerUid)
 
-    let profileLoaded = false
-    let productsLoaded = false
-
-    // Helper function to update loading state once both profile and products are loaded
-    const checkLoadingComplete = () => {
-      if (profileLoaded && productsLoaded) {
+    const unsubscribeProducts = onSnapshot(providerDocRef, (providerDoc) => {
+      if (providerDoc.exists()) {
+        setProviderProducts(providerDoc.data().products || [])
         setLoadingProducts(false)
       }
-    }
+    })
 
-    // Suscripción para providerProfile
+    const providerProfileDocRef = doc(db, "userProfiles", providerUid)
+
     const unsubscribeProfile = onSnapshot(
       providerProfileDocRef,
       (docSnapshot) => {
         if (docSnapshot.exists()) {
-          const providerProfileData = docSnapshot.data() as ProviderProfile
-          setProviderData(providerProfileData)
-          console.log("Datos del proveedor:", providerProfileData)
-        } else {
-          console.log("No existe el documento del proveedor.")
+          setProviderData(docSnapshot.data() as ProviderProfile)
         }
-        profileLoaded = true
-        checkLoadingComplete()
       }
     )
 
-    // Suscripción para providerProducts
-    const unsubscribeProducts = onSnapshot(
-      providerDocRef,
-      (providerDoc) => {
-        if (providerDoc.exists()) {
-          const products = providerDoc.data().products || []
-          setProviderProducts(products)
-        } else {
-          console.warn("No se encontraron productos para este proveedor.")
-        }
-        productsLoaded = true
-        checkLoadingComplete()
-      },
-      (error) => {
-        console.error("Error al suscribirse a los datos del proveedor:", error)
-        productsLoaded = true // Mark as loaded even on error
-        checkLoadingComplete()
-      }
-    )
-
-    // Retornar ambas funciones de limpieza para desuscribir cuando se salga del componente
     return () => {
       unsubscribeProducts()
       unsubscribeProfile()
     }
   }, [providerUid])
 
-  useEffect(() => {
-    const unsubscribeData = fetchProviderData()
-    return () => {
-      unsubscribeData()
-    }
-  }, [fetchProviderData, providerUid])
-
-  const crearPedido = async (nombre: string, precio: number) => {
-    try {
-      if (!clientId) {
-        Alert.alert("Error", "Debes estar autenticado para realizar un pedido.")
+  const handleAuthChange = useCallback(
+    async (user: User | null) => {
+      if (!user) {
+        setClientId(null)
+        setUserLocation({ latitude: 0, longitude: 0 })
         return
       }
-      console.log("Client ID:", clientId)
 
-      setLoadingOrder(true)
+      setClientId(user.uid)
+      const currentLocation = useLocationStore.getState().userLocation
 
-      const pedidoRef = await addDoc(collection(db, "pedidos"), {
-        pedidoId: "",
-        clienteId: clientId,
-        nombreCliente: "",
-        conductorId: providerUid,
-        ubicacionProveedor: providerAddress,
-        ubicacionCliente: userAddress,
-        producto: nombre,
-        precio,
-        estado: "pendiente",
-        timestamp: new Date(),
-      })
-
-      const pedidoId = pedidoRef.id
-
-      await setDoc(doc(db, "pedidos", pedidoId), { pedidoId }, { merge: true })
-      console.log("Pedido creado con ID:", pedidoId)
-      setPedidoActual({
-        id: pedidoId,
-        clienteId: clientId,
-        nombreCliente: "",
-        conductorId: providerUid,
-        ubicacionProveedor: providerAddress,
-        ubicacionCliente: userAddress,
-        producto,
-        precio,
-        estado: "pendiente",
-        timestamp: new Date(),
-      })
-      console.log("Pedido actual:", pedidoActual)
-
-      // Llama a la función de escuchar estado para manejar el estado del pedido
-      escucharEstadoPedido(pedidoId)
-    } catch (err: any) {
-      console.error("Error al crear el pedido: ", err)
-    }
-  }
-
-  const escucharEstadoPedido = (pedidoId: string) => {
-    const pedidoDocRef = doc(db, "pedidos", pedidoId)
-
-    // Aquí usamos onSnapshot para manejar la suscripción
-    const unsubscribe = onSnapshot(pedidoDocRef, (pedidoDoc) => {
-      if (pedidoDoc.exists()) {
-        const pedidoData = pedidoDoc.data()
-        const estado = pedidoData.estado
-
-        switch (estado) {
-          case "aceptado":
-            Alert.alert("Estado del Pedido", "Tu pedido ha sido aceptado.")
-
-            // Crear la sala de chat en la colección 'chats' con el ID del pedido
-            const chatRoomRef = doc(db, "chats", pedidoId)
-            setDoc(chatRoomRef, {
-              pedidoId,
-              providerUid: selectedProviderLocation?.id,
-              clientId,
-              createdAt: new Date(),
-            })
-
-            setPedidoEnCamino(true)
-            setPedidoDetalles(pedidoData)
-            console.log("pedido id", pedidoId)
-            setLoadingOrder(false)
-            unsubscribe()
-            setPedidoId(pedidoId)
-            break
-
-          case "rechazado":
-            Alert.alert("Estado del Pedido", "Tu pedido ha sido rechazado.")
-            setLoadingOrder(false) // Desactiva la carga cuando se rechaza el pedido
-            setTimeout(() => {
-              router.push("/home")
-            }, 500)
-            unsubscribe()
-            break
-          default:
-            console.log("Estado del pedido:", estado)
+      if (!currentLocation) {
+        const userLocationRef = doc(db, "userLocations", user.uid)
+        try {
+          const docSnap = await getDoc(userLocationRef)
+          if (docSnap.exists()) {
+            const { latitude, longitude } = docSnap.data()
+            setUserLocation({ latitude, longitude })
+          }
+        } catch (error) {
+          console.error("Error al obtener la ubicación:", error)
         }
       }
-    })
+    },
+    [setUserLocation]
+  )
 
-    const unsubscribeLlegado = onSnapshot(pedidoDocRef, (pedidoDoc) => {
-      if (pedidoDoc.exists()) {
-        const pedidoData = pedidoDoc.data()
-        const estado = pedidoData.estado
+  useEffect(() => {
+    const auth = getAuth()
+    const unsubscribe = onAuthStateChanged(auth, handleAuthChange)
+    return () => unsubscribe()
+  }, [handleAuthChange])
 
-        switch (estado) {
-          case "llegado":
-            Alert.alert("Estado del Pedido", "Tu pedido ha llegado.")
-            setTimeout(() => {
-              router.push("/home")
-              unsubscribeLlegado()
-            }, 1000)
-            break
-          default:
-            console.log("Estado del pedido:", estado)
+  useEffect(() => {
+    const unsubscribe = fetchProviderData()
+    return () => unsubscribe()
+  }, [fetchProviderData])
+
+  const escucharEstadoPedido = useCallback(
+    (pedidoId: string) => {
+      const pedidoDocRef = doc(db, "pedidos", pedidoId)
+
+      // Aquí usamos onSnapshot para manejar la suscripción
+      const unsubscribe = onSnapshot(pedidoDocRef, (pedidoDoc) => {
+        if (pedidoDoc.exists()) {
+          const pedidoData = pedidoDoc.data()
+          const estado = pedidoData.estado
+
+          switch (estado) {
+            case "aceptado":
+              Alert.alert("Estado del Pedido", "Tu pedido ha sido aceptado.")
+
+              // Crear la sala de chat en la colección 'chats' con el ID del pedido
+              const chatRoomRef = doc(db, "chats", pedidoId)
+              setDoc(chatRoomRef, {
+                pedidoId,
+                providerUid: selectedProviderLocation?.id,
+                clientId,
+                createdAt: new Date(),
+              })
+
+              setPedidoEnCamino(true)
+              setPedidoDetalles(pedidoData)
+              console.log("pedido id", pedidoId)
+              setLoadingOrder(false)
+              unsubscribe()
+              setPedidoId(pedidoId)
+              break
+
+            case "rechazado":
+              Alert.alert("Estado del Pedido", "Tu pedido ha sido rechazado.")
+              setLoadingOrder(false) // Desactiva la carga cuando se rechaza el pedido
+              setTimeout(() => {
+                router.push("/home")
+              }, 500)
+              unsubscribe()
+              break
+            default:
+              console.log("Estado del pedido:", estado)
+          }
         }
-      }
-    })
-  }
+      })
 
-  const handleRechazarPedido = async () => {
+      const unsubscribeLlegado = onSnapshot(pedidoDocRef, (pedidoDoc) => {
+        if (pedidoDoc.exists()) {
+          const pedidoData = pedidoDoc.data()
+          const estado = pedidoData.estado
+
+          switch (estado) {
+            case "llegado":
+              Alert.alert("Estado del Pedido", "Tu pedido ha llegado.")
+              setTimeout(() => {
+                router.push("/home")
+                unsubscribeLlegado()
+              }, 1000)
+              break
+            default:
+              console.log("Estado del pedido:", estado)
+          }
+        }
+      })
+    },
+    [selectedProviderLocation?.id, clientId, router]
+  )
+
+  const handleRechazarPedido = useCallback(async () => {
     if (pedidoId) {
       const pedidosDocRef = doc(db, "pedidos", pedidoId)
       try {
@@ -306,14 +213,19 @@ const FindRide = () => {
     } else {
       console.warn("No se encontró el ID del pedido.")
     }
-  }
+  }, [pedidoId, router])
 
-  const handleAddToCart = (product: Product) => {
-    addItem(product)
-  }
+  const handleAddToCart = useCallback(
+    (product: Product) => {
+      addItem(product)
+    },
+    [addItem]
+  )
+
+  const isLoading = loadingProducts
 
   return (
-    <RideLayout title="Inicio">
+    <RideLayout title="Productos Disponibles">
       <View className="flex flex-row justify-between items-center p-2 mb-4">
         <Text className="text-2xl font-bold">Pedido</Text>
         <CartIcon
