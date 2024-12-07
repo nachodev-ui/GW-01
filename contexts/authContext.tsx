@@ -10,8 +10,11 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  User,
 } from "firebase/auth"
 import { auth } from "@/firebaseConfig"
+import { useUserStore } from "@/store"
+import { registerForPushNotificationsAsync } from "@/lib/notifications"
 
 const initialState = {
   isAuthenticated: undefined,
@@ -23,7 +26,7 @@ const initialState = {
 type AuthContextType = {
   isAuthenticated: boolean | undefined
   login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  register: (email: string, password: string) => Promise<User | void>
   logout: () => Promise<void>
 }
 
@@ -33,10 +36,28 @@ interface Props extends PropsWithChildren {}
 
 const AuthProvider: React.FC<Props> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | undefined>()
+  const { pushToken, setPushToken, initializeUser } = useUserStore()
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAuthenticated(!!user)
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          await initializeUser()
+          setIsAuthenticated(true)
+
+          if (!pushToken) {
+            const token = await registerForPushNotificationsAsync()
+            if (token) {
+              await setPushToken(token)
+            }
+          }
+        } else {
+          setIsAuthenticated(false)
+        }
+      } catch (error) {
+        console.error("Error en la inicialización:", error)
+        setIsAuthenticated(false)
+      }
     })
 
     return () => unsubscribe()
@@ -50,11 +71,20 @@ const AuthProvider: React.FC<Props> = ({ children }) => {
     }
   }
 
-  const register = async (email: string, password: string) => {
+  const register = async (
+    email: string,
+    password: string
+  ): Promise<User | void> => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password)
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      )
+      return userCredential.user
     } catch (error) {
-      console.error(error)
+      console.error("Error en registro:", error)
+      throw error
     }
   }
 
