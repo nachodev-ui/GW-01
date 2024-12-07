@@ -65,31 +65,15 @@ export default function Layout() {
 
   const isFocused = (tab: string) => currentTab === tab
 
-  const getTabs = () => {
-    const commonTabs = [
-      { name: "home", icon: icons.home },
-      { name: "orders", icon: icons.list },
-      { name: "profile", icon: icons.profile },
-    ]
-
-    // Si el rol es proveedor, insertar la tab de chat después de iris
-    if (role === "proveedor") {
-      return [
-        ...commonTabs.slice(0, 2),
-        { name: "chat", icon: icons.chat },
-        ...commonTabs.slice(2),
-      ]
-    }
-
-    return commonTabs
-  }
+  const commonTabs = [
+    { name: "home", icon: icons.home },
+    { name: "orders", icon: icons.list },
+    { name: "chat", icon: icons.chat },
+    { name: "profile", icon: icons.profile },
+  ]
 
   return (
-    <Tabs
-      options={{
-        initialRouteName: "index",
-      }}
-    >
+    <Tabs>
       <TabSlot />
       <TabList
         style={{
@@ -106,7 +90,7 @@ export default function Layout() {
           justifyContent: "space-between",
         }}
       >
-        {getTabs().map((tab) => (
+        {commonTabs.map((tab) => (
           <TabTrigger
             key={tab.name}
             name={tab.name}
@@ -117,6 +101,7 @@ export default function Layout() {
               source={tab.icon}
               focused={isFocused(tab.name)}
               role={role}
+              shouldRender={tab.name !== "chat" || role === "proveedor"}
             />
           </TabTrigger>
         ))}
