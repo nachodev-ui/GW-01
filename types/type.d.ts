@@ -1,12 +1,21 @@
 import { create } from "zustand"
 
 import { User } from "firebase/auth"
-import { collection } from "firebase/firestore"
+import { collection, Timestamp } from "firebase/firestore"
 import { db } from "@/firebaseConfig"
 
 import { TextInputProps, TouchableOpacityProps } from "react-native"
 import { CartProduct } from "@/services/cart/cart.store"
 
+interface ProductStore {
+  products: Product[]
+  loading: boolean
+  error: string | null
+  addProduct: (product: Product) => Promise<void>
+  deleteProduct: (productId: string) => Promise<void>
+  fetchProducts: () => Promise<void>
+  updateProduct: (productId: string, updates: Partial<Product>) => Promise<void>
+}
 declare interface Product {
   id: string | null
   nombre: string
@@ -14,14 +23,14 @@ declare interface Product {
   formato: "5kg" | "11kg" | "15kg" | "45kg"
   precio: number
   stock: number
-  quantity: number
 }
 
 declare interface Mensaje {
   id: string
   texto: string
   remitenteId: string
-  timestamp: Date
+  timestamp: Timestamp
+  nombreRemitente?: string
 }
 
 declare interface Driver {
@@ -64,6 +73,8 @@ declare interface Ride {
 
 declare interface ButtonProps extends TouchableOpacityProps {
   title: string
+  loading?: boolean
+  disabled?: boolean
   bgVariant?: "primary" | "secondary" | "danger" | "outline" | "success"
   textVariant?:
     | "primary"
@@ -122,6 +133,7 @@ declare interface InputFieldProps extends TextInputProps {
   inputStyle?: string
   iconStyle?: string
   className?: string
+  error?: string
 }
 
 declare interface PaymentProps {
@@ -132,35 +144,52 @@ declare interface PaymentProps {
   rideTime: number
 }
 
-declare interface UserProfile {
-  user: any | null
+// Interfaz base para usuarios
+interface BaseUser {
   id: string
-  tipoUsuario: string
+  email: string
   firstName: string
   lastName: string
-  email: string
   phone: string
   photoURL: string
+  tipoUsuario: "usuario" | "proveedor"
+  pushToken: string | undefined
 }
 
-declare interface ProviderProfile extends UserProfile {
+// Usuario normal
+declare interface UserProfile extends BaseUser {
+  tipoUsuario: "usuario"
+}
+
+// Proveedor
+declare interface ProviderProfile extends BaseUser {
+  tipoUsuario: "proveedor"
   patente: string
-  distribuidora: string
+  distribuidora: "Abastible" | "Gasco" | "Lipigas"
   direccion: string
-  estado: string
+  estado: "disponible" | "no_disponible"
   telefonoCelular?: string
   telefonoFijo?: string
 }
 
+// Store del usuario
 declare interface UserStore {
-  user: UserProfile | null
+  user: UserProfile | ProviderProfile | null
   id: string
-  tipoUsuario: string
+  tipoUsuario: "usuario" | "proveedor"
   firstName: string
   lastName: string
   email: string
   phone: string
   photoURL: string
+  hasPermission: boolean
+  isProveedor: boolean
+  pushToken?: string
+  phoneError?: string
+
+  setPhoneError: (error: string) => void
+  validateAndSetPhone: (phone: string) => void
+  setPushToken: (token: string) => void
 
   fetchUserData: () => Promise<void>
 
@@ -174,10 +203,15 @@ declare interface UserStore {
     patente: string
     distribuidora: string
     direccion: string
-    estado: string
+    estado: "disponible" | "no_disponible"
     telefonoCelular?: string
     telefonoFijo?: string
   }) => void
+
+  initializeUser: () => Promise<void>
+  checkUserRole: () => Promise<void>
+  requestLocationPermission: () => Promise<void>
+  saveUserLocation: (latitude: number, longitude: number) => Promise<void>
 
   // Individual setters
   setFirstName: (firstName: string) => void
@@ -245,12 +279,16 @@ declare interface PedidoState {
   pedidos: Pedido[]
   loading: boolean
   pedidoActual: Pedido | null
-  setPedidoActual: (pedido: Pedido) => void
+  pedidoModalVisible: boolean
+  setPedidoActual: (pedido: Pedido | null) => void
   setPedidos: (pedidos: Pedido[]) => void
+  setPedidoModalVisible: (visible: boolean) => void
   crearNuevoPedido: (
     pedidoData: Omit<Pedido, "id" | "timestamp">
   ) => Promise<void>
   fetchPedidosStore: () => Promise<void>
+  fetchPedidosByUserType: () => Promise<void>
+  initializePedidosListener: (userId: string) => () => void
 }
 declare interface DriverStore {
   drivers: MarkerData[]
