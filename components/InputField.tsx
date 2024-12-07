@@ -1,60 +1,60 @@
-import { Ref, forwardRef } from "react"
-import {
-  TextInput,
-  View,
-  Text,
-  Image,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Keyboard,
-  Platform,
-} from "react-native"
+import React, { forwardRef } from "react"
+import { View, Text, TextInput, TextInputProps } from "react-native"
 
-import { InputFieldProps } from "@/types/type"
+interface InputFieldProps extends TextInputProps {
+  label: string
+  icon?: React.ReactNode
+  error?: string
+  labelStyle?: string
+  containerStyle?: string
+  inputStyle?: string
+  iconStyle?: string
+}
 
 const InputField = forwardRef<TextInput, InputFieldProps>(
   (
     {
       label,
       icon,
-      secureTextEntry = false,
+      error,
       labelStyle,
       containerStyle,
       inputStyle,
       iconStyle,
-      className,
       ...props
-    }: InputFieldProps,
-    ref: Ref<TextInput>
+    },
+    ref
   ) => {
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View className="my-2 w-full">
-            <Text className={`text-lg font-JakartaSemiBold mb-3 ${labelStyle}`}>
-              {label}
-            </Text>
-            <View
-              className={`flex flex-row justify-start items-center relative bg-neutral-100 rounded-full border border-neutral-100 focus:border-primary-500  ${containerStyle}`}
-            >
-              {icon && (
-                <Image source={icon} className={`w-6 h-6 ml-4 ${iconStyle}`} />
-              )}
-
-              <TextInput
-                ref={ref}
-                className={`rounded-full p-4 font-JakartaSemiBold text-[15px] flex-1 ${inputStyle} text-left`}
-                placeholderTextColor={"#A0A0A0"}
-                secureTextEntry={secureTextEntry}
-                {...props}
-              />
+      <View className={`w-full mb-4 ${containerStyle || ""}`}>
+        <Text
+          className={`text-sm font-JakartaSemiBold text-gray-700 mb-2 ${
+            labelStyle || ""
+          }`}
+        >
+          {label}
+        </Text>
+        <View className="relative">
+          <TextInput
+            ref={ref}
+            className={`w-full bg-gray-50/50 rounded-2xl p-4 font-Jakarta ${
+              icon ? "pl-12" : "pl-4"
+            } ${error ? "border border-red-500" : ""} ${inputStyle || ""}`}
+            placeholderTextColor="#94A3B8"
+            {...props}
+          />
+          {icon && (
+            <View className={`absolute left-4 top-[14px] ${iconStyle || ""}`}>
+              {icon}
             </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+          )}
+        </View>
+        {error && (
+          <Text className="text-red-500 text-sm mt-1 ml-1 font-Jakarta">
+            {error}
+          </Text>
+        )}
+      </View>
     )
   }
 )
