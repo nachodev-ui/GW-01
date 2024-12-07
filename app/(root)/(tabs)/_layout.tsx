@@ -6,12 +6,13 @@ import { auth, db } from "@/firebaseConfig"
 import { doc, getDoc } from "firebase/firestore"
 
 import { icons } from "@/constants"
+import { RelativePathString } from "expo-router"
 
 const TabIcon = ({
   source,
   focused,
   role,
-  shouldRender = true, // Por defecto se renderiza
+  shouldRender = true,
 }: {
   source: ImageSourcePropType
   focused: boolean
@@ -19,7 +20,7 @@ const TabIcon = ({
   shouldRender?: boolean
 }) => {
   if (!shouldRender) {
-    return null // No renderizar el ícono si shouldRender es falso
+    return null
   }
 
   return (
@@ -64,6 +65,25 @@ export default function Layout() {
 
   const isFocused = (tab: string) => currentTab === tab
 
+  const getTabs = () => {
+    const commonTabs = [
+      { name: "home", icon: icons.home },
+      { name: "orders", icon: icons.list },
+      { name: "profile", icon: icons.profile },
+    ]
+
+    // Si el rol es proveedor, insertar la tab de chat después de iris
+    if (role === "proveedor") {
+      return [
+        ...commonTabs.slice(0, 2),
+        { name: "chat", icon: icons.chat },
+        ...commonTabs.slice(2),
+      ]
+    }
+
+    return commonTabs
+  }
+
   return (
     <Tabs
       options={{
@@ -86,51 +106,20 @@ export default function Layout() {
           justifyContent: "space-between",
         }}
       >
-        <TabTrigger
-          name="home"
-          href="/home"
-          onPress={() => setCurrentTab("home")}
-        >
-          <TabIcon
-            source={icons.home}
-            focused={isFocused("home")}
-            role={role}
-          />
-        </TabTrigger>
-        <TabTrigger
-          name="iris"
-          href="/iris"
-          onPress={() => setCurrentTab("iris")}
-        >
-          <TabIcon
-            source={icons.search}
-            focused={isFocused("iris")}
-            role={role}
-          />
-        </TabTrigger>
-        <TabTrigger
-          name="chat"
-          href="/chat"
-          onPress={() => setCurrentTab("chat")}
-        >
-          <TabIcon
-            source={icons.chat}
-            focused={isFocused("chat")}
-            role={role}
-            shouldRender={role === "proveedor"} // No renderizar el ícono si el rol es proveedor
-          />
-        </TabTrigger>
-        <TabTrigger
-          name="profile"
-          href="/profile"
-          onPress={() => setCurrentTab("profile")}
-        >
-          <TabIcon
-            source={icons.profile}
-            focused={isFocused("profile")}
-            role={role}
-          />
-        </TabTrigger>
+        {getTabs().map((tab) => (
+          <TabTrigger
+            key={tab.name}
+            name={tab.name}
+            href={`/${tab.name}` as RelativePathString}
+            onPress={() => setCurrentTab(tab.name)}
+          >
+            <TabIcon
+              source={tab.icon}
+              focused={isFocused(tab.name)}
+              role={role}
+            />
+          </TabTrigger>
+        ))}
       </TabList>
     </Tabs>
   )
