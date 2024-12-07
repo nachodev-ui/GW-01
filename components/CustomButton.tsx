@@ -1,5 +1,4 @@
 import { TouchableOpacity, Text } from "react-native"
-
 import { ButtonProps } from "@/types/type"
 
 const getBgVariantStyle = (variant: ButtonProps["bgVariant"]) => {
@@ -11,7 +10,7 @@ const getBgVariantStyle = (variant: ButtonProps["bgVariant"]) => {
     case "success":
       return "bg-green-500"
     case "outline":
-      return "bg-transparent"
+      return "bg-transparent border border-[#0286FF]"
     default:
       return "bg-[#0286FF]"
   }
@@ -42,12 +41,14 @@ const CustomButton = ({
   IconLeft,
   IconRight,
   className,
+  loading,
+  disabled,
   ...props
 }: ButtonProps) => {
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`w-full rounded-full p-3 flex flex-row justify-center items-center shadow-md shadow-neutral-400/70 ${getBgVariantStyle(bgVariant)} ${className}`}
+      className={`w-full rounded-full p-3 flex flex-row justify-center items-center shadow-sm shadow-neutral-400/70 ${getBgVariantStyle(bgVariant)} ${className}`}
       {...props}
     >
       {IconLeft && <IconLeft />}
