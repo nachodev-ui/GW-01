@@ -1,5 +1,4 @@
 import {
-  getFirestore,
   doc,
   getDoc,
   setDoc,
@@ -26,23 +25,33 @@ export const getUserDataFromDB = async () => {
   const user = auth.currentUser
 
   if (user) {
-    const db = getFirestore()
     const userRef = doc(db, "userProfiles", user.uid)
     const userDoc = await getDoc(userRef)
 
     if (userDoc.exists()) {
+      const userData = userDoc.data()
       return {
-        id: user.uid, // Incluye el UID del usuario
-        ...userDoc.data(),
+        id: user.uid,
+        email: user.email || "",
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
+        phone: userData.phone || "",
+        photoURL: user.photoURL || "",
+        tipoUsuario: userData.tipoUsuario || "usuario",
+        // Campos adicionales para proveedores
+        ...(userData.tipoUsuario === "proveedor" && {
+          patente: userData.patente,
+          distribuidora: userData.distribuidora,
+          direccion: userData.direccion,
+          estado: userData.estado,
+          telefonoCelular: userData.telefonoCelular,
+          telefonoFijo: userData.telefonoFijo,
+        }),
       }
-    } else {
-      console.log("No se encontró el documento del usuario")
-      return null
     }
-  } else {
-    console.log("No hay usuario autenticado")
     return null
   }
+  return null
 }
 
 // Obtener los proveedores desde Firestore
@@ -97,7 +106,7 @@ export const updateUserTypeInDB = async (providerData: {
   patente: string
   distribuidora: string
   direccion: string
-  estado: "disponible"
+  estado: "disponible" | "no_disponible"
   telefonoCelular?: string
   telefonoFijo?: string
 }) => {
