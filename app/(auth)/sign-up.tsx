@@ -10,29 +10,18 @@ import OAuth from "@/components/OAuth"
 
 import { icons, images } from "@/constants"
 
-import { auth } from "../../firebaseConfig"
-import {
-  sendEmailVerification,
-  createUserWithEmailAndPassword,
-} from "firebase/auth"
-import { getFirestore, doc, setDoc } from "firebase/firestore"
+import { auth, db } from "@/firebaseConfig"
+import { sendEmailVerification } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { useAuth } from "@/contexts/authContext"
 
 const SignUp = () => {
-  const db = getFirestore()
   const nameInputRef = useRef<TextInput>(null)
   const emailInputRef = useRef<TextInput>(null)
   const passwordInputRef = useRef<TextInput>(null)
 
-  const [isFirstModalVisible, setFirstModalVisible] = useState(false) // Primer modal
-  const [isSecondModalVisible, setSecondModalVisible] = useState(false) // Segundo modal
-
-  const toggleFirstModal = () => {
-    setFirstModalVisible(!isFirstModalVisible)
-  }
-
-  const showSecondModal = () => {
-    setSecondModalVisible(true)
-  }
+  const [isFirstModalVisible, setFirstModalVisible] = useState(false)
+  const [isSecondModalVisible, setSecondModalVisible] = useState(false)
 
   const [form, setForm] = useState({
     name: "",
@@ -42,34 +31,54 @@ const SignUp = () => {
   const [verification, setVerification] = useState({
     state: "default",
     error: "",
-    code: "",
   })
+
+  const { register } = useAuth()
+
+  const toggleFirstModal = () => {
+    setFirstModalVisible(!isFirstModalVisible)
+  }
+
+  const showSecondModal = () => {
+    setSecondModalVisible(true)
+  }
 
   const onSignUpPress = async () => {
     try {
-      // Crear el usuario con el correo y la contraseña
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        form.email,
-        form.password
-      )
-      const user = userCredential.user
+      // 1. Validar campos
+      if (!form.email || !form.password || !form.name) {
+        Alert.alert("Error", "Por favor complete todos los campos")
+        return
+      }
 
-      // Enviar el enlace de verificación al correo electrónico del usuario
-      await sendEmailVerification(user)
+      // 2. Registrar usuario y obtener la respuesta
+      const userCredential = await register(form.email, form.password)
+      if (!userCredential) throw new Error("No se pudo crear el usuario")
 
-      await setDoc(doc(db, "userProfiles", user.uid), {
+      // 3. Crear perfil en Firestore usando el ID del usuario registrado
+      const userProfileRef = doc(db, "userProfiles", userCredential.uid)
+      const userData = {
+        id: userCredential.uid,
         email: form.email,
-        tipoUsuario: "usuario", // Campo fijo que no será modificable
-      })
+        firstName: form.name,
+        lastName: "",
+        phone: "",
+        photoURL: "",
+        tipoUsuario: "usuario",
+        timestamp: new Date(),
+        pushToken: null,
+        hasPermission: false,
+      }
 
-      // Establecer el estado de verificación a "pendiente"
+      await setDoc(userProfileRef, userData)
+      console.log("Perfil creado en Firestore")
+
+      // 4. Enviar email de verificación
+      await sendEmailVerification(userCredential)
       setVerification({ ...verification, state: "pending" })
-
-      // Mostrar un modal o mensaje al usuario si lo deseas
       toggleFirstModal()
     } catch (err: any) {
-      console.log(JSON.stringify(err, null, 2))
+      console.error("Error en signup:", err)
       Alert.alert(
         "Error",
         err.message || "Error al crear la cuenta. Inténtalo de nuevo."
@@ -80,44 +89,24 @@ const SignUp = () => {
   const onPressVerify = async () => {
     try {
       const user = auth.currentUser
-      if (user?.emailVerified) {
-        // Si el correo ya está verificado, crea el documento con los datos adicionales
-        await setDoc(doc(db, "userProfiles", user.uid), {
-          auth,
-          tipoUsuario: "usuario",
-        })
+      if (!user) throw new Error("No hay usuario autenticado")
 
-        // Mostrar un mensaje de éxito
-        console.log("Verification email sent. Please check your inbox.")
-        setVerification({ ...verification, state: "emailSent" })
+      await user.reload()
+
+      if (user.emailVerified) {
+        setVerification({ ...verification, state: "completed" })
         showSecondModal()
       } else {
         setVerification({
-          ...verification,
-          error: "Verifica tu correo antes de continuar.",
           state: "failed",
+          error: "Por favor, verifica tu correo antes de continuar",
         })
       }
-
-      // Actualizar el estado de verificación a "completado"
-      setVerification({ ...verification, state: "completed" })
-
-      // Mostrar un mensaje de éxito
-      console.log("Verification successful. You can now login.")
-
-      // Cerrar el modal
-      setFirstModalVisible(false)
-
-      // Navegar al siguiente paso
-      setTimeout(() => {
-        router.push("/home")
-      }, 500)
-    } catch (err: any) {
-      console.log("Error during verification", err)
+    } catch (error) {
+      console.error("Error al verificar:", error)
       setVerification({
-        ...verification,
-        error: err.message || "Verification failed. Please try again.",
         state: "failed",
+        error: "Error al verificar el correo",
       })
     }
   }
@@ -149,7 +138,6 @@ const SignUp = () => {
             value={form.name}
             onChangeText={(value) => setForm({ ...form, name: value })}
             returnKeyType="next"
-            blurOnSubmit={false}
             onSubmitEditing={() => handleSubmitEditing(emailInputRef)}
           />
           <InputField
@@ -161,7 +149,6 @@ const SignUp = () => {
             value={form.email}
             onChangeText={(value) => setForm({ ...form, email: value })}
             returnKeyType="next"
-            blurOnSubmit={false}
             onSubmitEditing={() => handleSubmitEditing(passwordInputRef)}
           />
           <InputField
@@ -195,64 +182,62 @@ const SignUp = () => {
           onModalHide={showSecondModal}
           onBackdropPress={() => setFirstModalVisible(false)}
         >
-          <KeyboardAwareScrollView
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-            enableOnAndroid={true}
-            extraScrollHeight={80}
-            keyboardOpeningTime={0}
-          >
-            <View className="bg-white px-7 py-9 rounded-2xl min-h-[350px]">
-              <Text className="font-JakartaExtraBold text-2xl mb-2">
-                Verificación
+          <View className="bg-white px-7 py-9 rounded-2xl">
+            <Text className="font-JakartaExtraBold text-2xl mb-2">
+              Verificación de Correo
+            </Text>
+            <Text className="font-Jakarta mb-5">
+              Hemos enviado un enlace de verificación a{" "}
+              <Text className="text-blue-500 font-JakartaSemiBold">
+                {form.email}
               </Text>
-              <Text className="font-Jakarta mb-5">
-                Hemos enviado un código de verificación a su correo electrónico{" "}
-                <Text className="text-blue-500 font-JakartaSemiBold">
-                  {form.email}
-                </Text>
-                . Por favor, ingrese el código a continuación.
+              {"\n\n"}
+              Por favor, revisa tu correo y haz clic en el enlace para verificar
+              tu cuenta.
+            </Text>
+            {verification.error && (
+              <Text className="text-red-500 text-sm mb-4">
+                {verification.error}
               </Text>
-              <InputField
-                label={"Código"}
-                icon={icons.lock}
-                placeholder={"12345"}
-                value={verification.code}
-                keyboardType="numeric"
-                onChangeText={(code) =>
-                  setVerification({ ...verification, code })
+            )}
+            <CustomButton
+              title="Confirmar Correo"
+              onPress={onPressVerify}
+              className="mt-5"
+            />
+            <CustomButton
+              title="Reenviar Correo"
+              onPress={async () => {
+                const user = auth.currentUser
+                if (user) {
+                  await sendEmailVerification(user)
+                  Alert.alert(
+                    "Correo enviado",
+                    "Por favor revisa tu bandeja de entrada"
+                  )
                 }
-              />
-              {verification.error && (
-                <Text className="text-red-500 text-sm mt-1">
-                  {verification.error}
-                </Text>
-              )}
-              <CustomButton
-                title="Verificar Correo"
-                onPress={() => {
-                  onPressVerify()
-                  setFirstModalVisible(false)
-                }}
-                className="mt-5"
-              />
-            </View>
-          </KeyboardAwareScrollView>
+              }}
+              className="mt-3 bg-gray-500"
+            />
+          </View>
         </ReactNativeModal>
 
         <ReactNativeModal isVisible={isSecondModalVisible}>
-          <View className="bg-white px-7 py-9 rounded-2xl min-h-[200px]">
+          <View className="bg-white px-7 py-9 rounded-2xl">
             <Text className="font-JakartaExtraBold text-2xl mb-2">
               ¡Registro Exitoso!
             </Text>
-            <Text className="font-Jakarta">
-              Su cuenta ha sido creada exitosamente. Ahora puede iniciar sesión
-              con su correo electrónico y contraseña.
+            <Text className="font-Jakarta mb-5">
+              Tu cuenta ha sido verificada exitosamente. Ya puedes comenzar a
+              usar la aplicación.
             </Text>
             <CustomButton
-              title="Ir al Inicio"
+              title="Comenzar"
               onPress={() => {
-                router.push("/home")
                 setSecondModalVisible(false)
+                setTimeout(() => {
+                  router.push("/home")
+                }, 300)
               }}
               className="mt-5"
             />
