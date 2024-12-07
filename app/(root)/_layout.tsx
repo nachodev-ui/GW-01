@@ -35,6 +35,13 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="tracking"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen name="products" options={{ headerShown: false }} />
     </Stack>
   )
 }
