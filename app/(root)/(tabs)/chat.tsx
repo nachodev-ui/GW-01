@@ -1,50 +1,113 @@
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import {
-  ScrollView,
-  Text,
-  View,
-  TouchableOpacity,
   FlatList,
+  Text,
+  TouchableOpacity,
+  View,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Alert,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { Redirect, router } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
 
-import createProduct from "../../firebase/createProduct"
-import { db } from "@/firebaseConfig"
-import { doc, onSnapshot } from "firebase/firestore"
-import { getAuth, onAuthStateChanged } from "firebase/auth"
-
+import { useUserStore, useProductStore } from "@/store"
 import InputField from "@/components/InputField"
-import CustomButton from "@/components/CustomButton"
 
-import { Product } from "@/types/type"
+const DropdownSelect = ({
+  label,
+  options,
+  value,
+  onSelect,
+  isOpen,
+  toggleOpen,
+}: {
+  label: string
+  options: string[]
+  value: string | null
+  onSelect: (value: string) => void
+  isOpen: boolean
+  toggleOpen: () => void
+}) => (
+  <View className="mb-4">
+    <Text className="text-lg font-JakartaSemiBold mb-2 text-neutral-800">
+      {label}
+    </Text>
+    <TouchableOpacity
+      onPress={toggleOpen}
+      className={`bg-white border rounded-xl py-3.5 px-4 ${
+        isOpen ? "border-primary-500" : "border-neutral-200"
+      }`}
+    >
+      <Text
+        className={`text-base ${
+          value ? "text-neutral-800" : "text-neutral-400"
+        } font-JakartaMedium`}
+      >
+        {value || `Selecciona ${label.toLowerCase()}`}
+      </Text>
+    </TouchableOpacity>
+    {isOpen && (
+      <View className="absolute top-[100%] left-0 right-0 bg-white border border-neutral-200 rounded-lg mt-1 z-50 shadow-lg">
+        <FlatList
+          data={options}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => {
+                onSelect(item)
+                toggleOpen()
+              }}
+              className="py-3 px-4 border-b border-neutral-100 active:bg-neutral-50"
+            >
+              <Text className="text-base font-JakartaLight text-neutral-800">
+                {item}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+    )}
+  </View>
+)
 
-const Chat = () => {
-  const [providerProducts, setProviderProducts] = useState<Product[]>([])
-  const [clientId, setClientId] = useState<string | null>(null)
+const ActionButton = ({
+  title,
+  onPress,
+  variant = "primary",
+  icon,
+}: {
+  title: string
+  onPress: () => void
+  variant?: "primary" | "secondary"
+  icon: React.ReactNode
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    className={`
+      w-full rounded-2xl shadow-sm
+      ${variant === "primary" ? "bg-[#77BEEA]" : "bg-[#77BEEA]/10"}
+      ${variant === "primary" ? "shadow-[#77BEEA]/30" : ""}
+    `}
+  >
+    <View className="flex-row items-center justify-center py-4">
+      {icon}
+      <Text
+        className={`
+          text-base font-JakartaBold ml-3
+          ${variant === "primary" ? "text-white" : "text-[#77BEEA]"}
+        `}
+      >
+        {title}
+      </Text>
+    </View>
+  </TouchableOpacity>
+)
 
-  useEffect(() => {
-    const auth = getAuth()
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setClientId(user ? user.uid : null)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  // Listen for provider's products
-  useEffect(() => {
-    if (!clientId) return
-
-    const providerDocRef = doc(db, "providerProducts", clientId)
-    const unsubscribe = onSnapshot(providerDocRef, (providerDoc) => {
-      if (providerDoc.exists()) {
-        const products = providerDoc.data().products as Product[]
-        setProviderProducts(products)
-      } else {
-        console.log("No se encontró el documento de productos del proveedor.")
-      }
-    })
-    return () => unsubscribe()
-  }, [clientId])
+const ProductManagement = () => {
+  const { user } = useUserStore()
+  const { addProduct } = useProductStore()
 
   const [marca, setMarca] = useState<"Abastible" | "Gasco" | "Lipigas" | null>(
     null
@@ -52,9 +115,8 @@ const Chat = () => {
   const [formato, setFormato] = useState<
     "5kg" | "11kg" | "15kg" | "45kg" | null
   >(null)
-  const [precio, setPrecio] = useState<string>("")
-  const [stock, setStock] = useState<string>("")
-
+  const [precio, setPrecio] = useState("")
+  const [stock, setStock] = useState("")
   const [showMarcaOptions, setShowMarcaOptions] = useState(false)
   const [showFormatoOptions, setShowFormatoOptions] = useState(false)
 
@@ -62,186 +124,123 @@ const Chat = () => {
   const formatoOptions = ["5kg", "11kg", "15kg", "45kg"]
 
   const handleSave = async () => {
-    if (!marca || !formato || !precio || !stock) {
-      alert("Por favor, completa todos los campos.")
+    if (
+      !marca ||
+      !formato ||
+      !precio ||
+      !stock ||
+      !precio.trim() ||
+      !stock.trim()
+    ) {
+      alert("Por favor, completa todos los campos")
+      return
+    }
+
+    const precioFloat = parseFloat(precio)
+    const stockInt = parseInt(stock)
+
+    if (isNaN(precioFloat) || isNaN(stockInt)) {
+      Alert.alert("Error", "Por favor, ingresa valores numéricos válidos")
       return
     }
 
     try {
-      const newProduct = {
-        id: Math.random().toString(36),
-        nombre: marca + " - " + formato,
+      await addProduct({
         marca,
         formato,
         precio: parseFloat(precio),
         stock: parseInt(stock),
-        imagen: "", // Add a default or actual image URL here
-        quantity: 1,
-      }
+        id: null,
+        nombre: `${marca} ${formato}`,
+      })
 
-      await createProduct(newProduct)
-      alert("Producto guardado exitosamente.")
-
+      // Limpiar formulario
       setMarca(null)
       setFormato(null)
       setPrecio("")
       setStock("")
+
+      // Opcional: Redirigir a la lista de productos después de guardar
+      router.push("/(root)/products")
     } catch (error) {
-      console.error("Error al guardar el producto:", error)
-      alert("Hubo un error al guardar el producto.")
+      console.error("Error al guardar producto:", error)
+      alert("Hubo un error al guardar el producto")
     }
   }
 
-  const deleteProduct = async (index: number) => {
-    try {
-      // Crear una copia del estado actual
-      const updatedProducts = [...providerProducts]
-      // Eliminar el producto en el índice especificado
-      updatedProducts.splice(index, 1)
-
-      // Actualizar el estado con la nueva lista de productos
-      setProviderProducts(updatedProducts)
-
-      // Aquí puedes agregar la lógica para eliminar el producto de Firestore si es necesario
-
-      alert("Producto eliminado.")
-    } catch (error) {
-      console.error("Error al eliminar el producto:", error)
-      alert("Hubo un error al eliminar el producto.")
-    }
+  if (!user || user.tipoUsuario !== "proveedor") {
+    return <Redirect href="/home" />
   }
-
-  const renderDropdown = (
-    options: string[],
-    selectedValue: string | null,
-    onSelect: (value: string) => void,
-    isOpen: boolean,
-    toggleOpen: () => void
-  ) => (
-    <View className="mb-3 relative">
-      <TouchableOpacity
-        onPress={toggleOpen}
-        className="bg-neutral-100 border border-neutral-300 rounded-full py-3 px-3 my-2"
-      >
-        <Text className="text-sm font-JakartaSemiBold text-neutral-800">
-          {selectedValue || "Selecciona una opción"}
-        </Text>
-      </TouchableOpacity>
-      {isOpen && (
-        <View className="absolute top-14 left-0 w-full bg-white border border-neutral-300 rounded-lg shadow-md z-10">
-          <FlatList
-            data={options}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => {
-                  onSelect(item)
-                  toggleOpen()
-                }}
-                className="py-2 px-4"
-              >
-                <Text className="text-sm font-JakartaSemiBold text-neutral-800">
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-    </View>
-  )
 
   return (
-    <SafeAreaView className="flex-1 bg-white p-5">
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: "space-between",
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text className="text-2xl font-JakartaBold ">Gestión de Productos</Text>
-
-        <View>
-          {/* Mis Productos */}
-          <Text className="text-xl font-JakartaSemiBold mt-6">
-            Mis Productos
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView className="flex-1 bg-neutral-50">
+        <View className="flex-1 px-5 pt-4">
+          <Text className="text-xl font-JakartaBold text-neutral-800 mb-6 ml-2 mt-2">
+            Agregar productos
           </Text>
-          <FlatList
-            data={providerProducts}
-            keyExtractor={(item, index) => `${index}`} // Usamos el índice como clave
-            renderItem={({ item, index }) => (
-              <View className="flex-row justify-between items-center p-4 border-b border-gray-300">
-                <Text className="text-lg font-JakartaSemiBold">
-                  {item.marca} - {item.formato}
-                </Text>
-                <Text className="text-md">
-                  Precio: ${item.precio} | Stock: {item.stock}
-                </Text>
 
-                {/* Botón de borrar */}
-                <TouchableOpacity
-                  onPress={() => deleteProduct(index)}
-                  className="ml-2"
-                >
-                  <Text className="text-sm text-red-500">Borrar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            ListEmptyComponent={() => (
-              <Text className="text-center text-neutral-500">
-                No tienes productos registrados.
-              </Text>
-            )}
-          />
+          <View className="bg-white p-5 rounded-xl shadow-sm">
+            <DropdownSelect
+              label="Marca"
+              options={marcasOptions}
+              value={marca}
+              onSelect={(value) => setMarca(value as typeof marca)}
+              isOpen={showMarcaOptions}
+              toggleOpen={() => setShowMarcaOptions(!showMarcaOptions)}
+            />
 
-          {/* Agregar Producto Section */}
-          <Text className="text-xl font-JakartaSemiBold mt-6">
-            Agregar Productos
-          </Text>
-          <Text className="text-lg font-JakartaSemiBold mt-6">Marca</Text>
-          {renderDropdown(
-            marcasOptions,
-            marca,
-            (value) => setMarca(value as "Abastible" | "Gasco" | "Lipigas"),
-            showMarcaOptions,
-            () => setShowMarcaOptions(!showMarcaOptions)
-          )}
+            <DropdownSelect
+              label="Formato"
+              options={formatoOptions}
+              value={formato}
+              onSelect={(value) => setFormato(value as typeof formato)}
+              isOpen={showFormatoOptions}
+              toggleOpen={() => setShowFormatoOptions(!showFormatoOptions)}
+            />
 
-          <Text className="text-lg font-JakartaSemiBold">Formato</Text>
-          {renderDropdown(
-            formatoOptions,
-            formato,
-            (value) => setFormato(value as "5kg" | "11kg" | "15kg" | "45kg"),
-            showFormatoOptions,
-            () => setShowFormatoOptions(!showFormatoOptions)
-          )}
+            <InputField
+              label="Precio"
+              keyboardType="numeric"
+              value={precio}
+              placeholder="Precio"
+              inputStyle="bg-neutral-50"
+              onChangeText={setPrecio}
+              className="mb-4"
+            />
 
-          <InputField
-            label="Precio"
-            keyboardType="numeric"
-            value={precio}
-            onChangeText={setPrecio}
-            className="py-3 px-3"
-          />
+            <InputField
+              label="Stock"
+              keyboardType="numeric"
+              value={stock}
+              placeholder="Stock"
+              inputStyle="bg-neutral-50"
+              onChangeText={setStock}
+              className="mb-6"
+            />
 
-          <InputField
-            label="Stock"
-            keyboardType="numeric"
-            value={stock}
-            onChangeText={setStock}
-            className="py-3 px-3"
-          />
+            <View>
+              <ActionButton
+                title="Guardar Producto"
+                onPress={handleSave}
+                variant="primary"
+                icon={<Ionicons name="save-outline" size={22} color="white" />}
+              />
 
-          <CustomButton
-            title="Guardar Producto"
-            onPress={handleSave}
-            className="bg-primary-500 mb-14 mt-4"
-          />
+              <ActionButton
+                title="Ver Mis Productos"
+                onPress={() => router.push("/(root)/products")}
+                variant="secondary"
+                icon={
+                  <Ionicons name="list-outline" size={22} color="#77BEEA" />
+                }
+              />
+            </View>
+          </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   )
 }
 
-export default Chat
+export default ProductManagement
