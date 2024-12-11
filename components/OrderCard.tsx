@@ -3,10 +3,12 @@ import { Image, Text, View } from "react-native"
 import { icons } from "@/constants"
 import { Pedido } from "@/types/type"
 import { formatToChileanPesos } from "@/lib/utils"
-import { formatDate } from "@/lib/dateUtils"
-import { Timestamp } from "@/types/time"
+import { formatDate } from "@/lib/utils"
+import { useUserStore } from "@/store/index"
 
 const OrderCard = ({ pedido }: { pedido: Pedido }) => {
+  const { isProveedor } = useUserStore()
+
   const mapUrl = `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=400&center=lonlat:${pedido?.ubicacionProveedor.longitude},${pedido?.ubicacionProveedor.latitude}&zoom=14&apiKey=${process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY}`
   const encodedMapUrl = encodeURI(mapUrl)
 
@@ -56,10 +58,12 @@ const OrderCard = ({ pedido }: { pedido: Pedido }) => {
         <View className="flex flex-col w-full mt-5 bg-general-500 rounded-lg p-3 items-start justify-center">
           <View className="flex flex-row items-center w-full justify-between mb-5">
             <Text className="text-md font-JakartaMedium text-gray-500">
-              Número de orden
+              {isProveedor ? "Cliente" : "Conductor"}
             </Text>
             <Text className="text-md font-JakartaBold">
-              {pedido?.id || "No status available"}
+              {isProveedor
+                ? pedido?.nombreCliente
+                : pedido?.conductorId || "No disponible"}
             </Text>
           </View>
 
@@ -68,9 +72,7 @@ const OrderCard = ({ pedido }: { pedido: Pedido }) => {
               Fecha y Hora
             </Text>
             <Text className="text-md font-JakartaBold">
-              {pedido?.timestamp
-                ? formatDate(pedido.timestamp as unknown as Timestamp)
-                : "No date available"}
+              {formatDate(pedido?.timestamp)}
             </Text>
           </View>
 
@@ -88,7 +90,7 @@ const OrderCard = ({ pedido }: { pedido: Pedido }) => {
               Valor total
             </Text>
             <Text className="text-md font-JakartaBold">
-              {formatToChileanPesos(pedido?.precio) || "No price available"}
+              {formatToChileanPesos(pedido?.precio) || "No disponible"}
             </Text>
           </View>
         </View>
