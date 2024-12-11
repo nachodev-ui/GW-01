@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react"
-import { Text, View, Platform, Dimensions } from "react-native"
+import { Text, View, Platform } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
 import ClusteredMapView from "react-native-map-clustering"
 import {
@@ -21,7 +21,7 @@ import { router } from "expo-router"
 
 import { db } from "@/firebaseConfig"
 import { getCurrentUser } from "@/lib/firebase"
-import { useLocationStore } from "@/store"
+import { useLocationStore, useUserStore } from "@/store"
 import { UserLocationMarker } from "./map/UserLocationMarker"
 import { DirectionsRoute } from "./map/DirectionsRoute"
 import {
@@ -30,6 +30,8 @@ import {
   LocationValidation,
 } from "@/lib/map/types"
 import { isValidLocation, getMapRegion } from "@/lib/map/utils"
+import { LocationPermissionRequest } from "./LocationPermissionRequest"
+import * as Location from "expo-location"
 
 // Reducer para manejar estados locales
 const mapReducer = (
@@ -68,6 +70,8 @@ const Map = () => {
 
   const [isMapReady, setIsMapReady] = useState(false)
 
+  const { hasPermission, requestLocationPermission } = useUserStore()
+
   // Función para obtener la ubicación del usuario
   const fetchUserLocation = useCallback(async () => {
     if (!user?.uid) return
@@ -75,17 +79,32 @@ const Map = () => {
     dispatch({ type: "SET_LOADING", payload: true })
     try {
       const userLocationDoc = await getDoc(doc(db, "userLocations", user.uid))
-      const locationData = userLocationDoc.data() as LocationValidation
 
-      if (!userLocationDoc.exists() || !isValidLocation(locationData)) {
-        throw new Error("Ubicación del usuario no disponible o incompleta")
+      if (!userLocationDoc.exists()) {
+        const { status } = await Location.getForegroundPermissionsAsync()
+        if (status === "granted") {
+          const location = await Location.getCurrentPositionAsync({})
+          const newLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            address: "Ubicación actual",
+          }
+          setUserLocation(newLocation)
+          return
+        }
       }
 
-      setUserLocation({
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
-        address: locationData.address,
-      })
+      const locationData = userLocationDoc.data() as LocationValidation
+
+      if (isValidLocation(locationData)) {
+        setUserLocation({
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          address: locationData.address,
+        })
+      }
+
+      dispatch({ type: "SET_LOADING", payload: false })
     } catch (error) {
       dispatch({
         type: "SET_ERROR",
@@ -276,6 +295,21 @@ const Map = () => {
       />
     ))
   }, [providersLocations, state.currentUserRole, handleMarkerPress])
+
+  // Si no hay permisos, mostramos el componente de solicitud
+  if (!hasPermission) {
+    return (
+      <LocationPermissionRequest
+        onRequestPermission={async () => {
+          const granted = await requestLocationPermission()
+          if (granted) {
+            // Forzar actualización del mapa
+            await fetchUserLocation()
+          }
+        }}
+      />
+    )
+  }
 
   if (!user?.uid) {
     return (
