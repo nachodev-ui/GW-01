@@ -1,19 +1,27 @@
 import { useState, useRef } from "react"
-import { Alert, Image, Text, View, TextInput } from "react-native"
+import {
+  Alert,
+  Image,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+} from "react-native"
 import { ReactNativeModal } from "react-native-modal"
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
 import { Link, router } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
 
 import CustomButton from "@/components/CustomButton"
 import InputField from "@/components/InputField"
 import OAuth from "@/components/OAuth"
 
-import { icons, images } from "@/constants"
-
 import { auth, db } from "@/firebaseConfig"
 import { sendEmailVerification } from "firebase/auth"
-import { doc, setDoc } from "firebase/firestore"
+import { doc, getDoc } from "firebase/firestore"
 import { useAuth } from "@/contexts/authContext"
+import { useAuthStore } from "@/store/authStore"
+import { ProviderProfile, UserProfile } from "@/types/type"
 
 const SignUp = () => {
   const nameInputRef = useRef<TextInput>(null)
@@ -21,7 +29,6 @@ const SignUp = () => {
   const passwordInputRef = useRef<TextInput>(null)
 
   const [isFirstModalVisible, setFirstModalVisible] = useState(false)
-  const [isSecondModalVisible, setSecondModalVisible] = useState(false)
 
   const [form, setForm] = useState({
     name: "",
@@ -33,56 +40,26 @@ const SignUp = () => {
     error: "",
   })
 
-  const { register } = useAuth()
+  const { register, setError } = useAuth()
 
   const toggleFirstModal = () => {
     setFirstModalVisible(!isFirstModalVisible)
   }
 
-  const showSecondModal = () => {
-    setSecondModalVisible(true)
-  }
-
   const onSignUpPress = async () => {
     try {
-      // 1. Validar campos
-      if (!form.email || !form.password || !form.name) {
-        Alert.alert("Error", "Por favor complete todos los campos")
-        return
-      }
+      const userCredential = await register(
+        form.email,
+        form.password,
+        form.name
+      )
+      if (!userCredential) return
 
-      // 2. Registrar usuario y obtener la respuesta
-      const userCredential = await register(form.email, form.password)
-      if (!userCredential) throw new Error("No se pudo crear el usuario")
-
-      // 3. Crear perfil en Firestore usando el ID del usuario registrado
-      const userProfileRef = doc(db, "userProfiles", userCredential.uid)
-      const userData = {
-        id: userCredential.uid,
-        email: form.email,
-        firstName: form.name,
-        lastName: "",
-        phone: "",
-        photoURL: "",
-        tipoUsuario: "usuario",
-        timestamp: new Date(),
-        pushToken: null,
-        hasPermission: false,
-      }
-
-      await setDoc(userProfileRef, userData)
-      console.log("Perfil creado en Firestore")
-
-      // 4. Enviar email de verificación
       await sendEmailVerification(userCredential)
       setVerification({ ...verification, state: "pending" })
       toggleFirstModal()
-    } catch (err: any) {
-      console.error("Error en signup:", err)
-      Alert.alert(
-        "Error",
-        err.message || "Error al crear la cuenta. Inténtalo de nuevo."
-      )
+    } catch (error) {
+      console.error(error)
     }
   }
 
@@ -95,18 +72,57 @@ const SignUp = () => {
 
       if (user.emailVerified) {
         setVerification({ ...verification, state: "completed" })
-        showSecondModal()
+        toggleFirstModal()
+
+        const userDoc = await getDoc(doc(db, "userProfiles", user.uid))
+        const userData = userDoc.data()
+
+        if (userData) {
+          const typedUser = {
+            ...userData,
+            id: user.uid,
+          } as UserProfile | ProviderProfile
+          useAuthStore.getState().setUser(typedUser)
+          useAuthStore.getState().setRole(typedUser.tipoUsuario)
+          useAuthStore.getState().setIsAuthenticated(true)
+
+          router.replace("/home")
+        }
       } else {
         setVerification({
-          state: "failed",
+          state: "pending",
           error: "Por favor, verifica tu correo antes de continuar",
         })
       }
     } catch (error) {
       console.error("Error al verificar:", error)
       setVerification({
-        state: "failed",
-        error: "Error al verificar el correo",
+        state: "pending",
+        error: "Error al verificar el correo. Intenta nuevamente.",
+      })
+    }
+  }
+
+  const handleResendEmail = async () => {
+    try {
+      const user = auth.currentUser
+      if (user) {
+        await sendEmailVerification(user)
+        setError({
+          visible: true,
+          message: "Se ha reenviado el correo de verificación",
+        })
+      } else {
+        setVerification({
+          ...verification,
+          error: "No se pudo reenviar el correo. Por favor, intenta nuevamente",
+        })
+      }
+    } catch (error) {
+      console.error("Error al reenviar:", error)
+      setVerification({
+        ...verification,
+        error: "Error al reenviar el correo. Por favor, intenta nuevamente",
       })
     }
   }
@@ -117,130 +133,192 @@ const SignUp = () => {
 
   return (
     <KeyboardAwareScrollView
-      contentContainerStyle={{ flexGrow: 1 }}
-      enableOnAndroid={true}
-      enableAutomaticScroll={true}
-      keyboardOpeningTime={0}
+      className="flex-1 bg-white"
+      keyboardShouldPersistTaps="handled"
     >
-      <View className="flex-1 bg-white">
-        <View className="relative w-full h-[250px]">
-          <Image source={images.signUpCar} className="z-0 w-full h-[250px]" />
-          <Text className="text-3xl text-white font-JakartaBold absolute bottom-28 left-5">
-            Crea una Cuenta
-          </Text>
-        </View>
-        <View className="p-5">
-          <InputField
-            ref={nameInputRef}
-            label="Nombre"
-            placeholder="Ingrese su nombre"
-            icon={icons.person}
-            value={form.name}
-            onChangeText={(value) => setForm({ ...form, name: value })}
-            returnKeyType="next"
-            onSubmitEditing={() => handleSubmitEditing(emailInputRef)}
+      <View className="flex-1">
+        {/* Header con diseño moderno y gradiente */}
+        <View className="relative h-[298px]">
+          <Image
+            source={{
+              uri: "https://img.freepik.com/free-vector/blue-abstract-gradient-wave-vector-background_53876-111548.jpg",
+            }}
+            className="w-full h-full absolute"
+            resizeMode="cover"
           />
-          <InputField
-            ref={emailInputRef}
-            label="Correo electrónico"
-            placeholder="Ingrese su correo electrónico"
-            icon={icons.email}
-            textContentType="emailAddress"
-            value={form.email}
-            onChangeText={(value) => setForm({ ...form, email: value })}
-            returnKeyType="next"
-            onSubmitEditing={() => handleSubmitEditing(passwordInputRef)}
-          />
-          <InputField
-            ref={passwordInputRef}
-            label="Contraseña"
-            placeholder="Ingrese su contraseña"
-            icon={icons.lock}
-            secureTextEntry={true}
-            textContentType="password"
-            value={form.password}
-            onChangeText={(value) => setForm({ ...form, password: value })}
-            returnKeyType="done"
-            onSubmitEditing={() => passwordInputRef.current?.blur()}
-          />
-          <CustomButton
-            title="Crear Cuenta"
-            onPress={onSignUpPress}
-            className="mt-6"
-          />
-          <OAuth />
-          <Link
-            href="/sign-in"
-            className="text-lg text-center text-general-200 mt-5"
-          >
-            ¿Ya tienes una cuenta?{" "}
-            <Text className="text-primary-500">Iniciar Sesión</Text>
-          </Link>
-        </View>
-        <ReactNativeModal
-          isVisible={verification.state === "pending"}
-          onModalHide={showSecondModal}
-          onBackdropPress={() => setFirstModalVisible(false)}
-        >
-          <View className="bg-white px-7 py-9 rounded-2xl">
-            <Text className="font-JakartaExtraBold text-2xl mb-2">
-              Verificación de Correo
-            </Text>
-            <Text className="font-Jakarta mb-5">
-              Hemos enviado un enlace de verificación a{" "}
-              <Text className="text-blue-500 font-JakartaSemiBold">
-                {form.email}
+
+          {/* Overlay para mejorar legibilidad */}
+          <View className="absolute inset-0 bg-[#77BEEA]/40" />
+
+          {/* Contenido del Header */}
+          <View className="px-6 pt-6 relative z-10">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full items-center justify-center mb-12"
+            >
+              <Ionicons name="arrow-back" size={20} color="white" />
+            </TouchableOpacity>
+
+            <View>
+              <Text className="text-neutral-600 text-2xl font-JakartaBold leading-tight mb-3">
+                Bienvenido a Gasway
               </Text>
-              {"\n\n"}
-              Por favor, revisa tu correo y haz clic en el enlace para verificar
-              tu cuenta.
-            </Text>
-            {verification.error && (
-              <Text className="text-red-500 text-sm mb-4">
-                {verification.error}
+              <Text className="text-neutral-600/90 text-base font-JakartaMedium">
+                Crea una cuenta para comenzar a usar la aplicación
               </Text>
-            )}
-            <CustomButton
-              title="Confirmar Correo"
-              onPress={onPressVerify}
-              className="mt-5"
+            </View>
+          </View>
+
+          {/* Curva decorativa en la parte inferior */}
+          <View className="absolute -bottom-1 w-full overflow-hidden">
+            <View className="h-20 bg-white rounded-t-[50px]" />
+          </View>
+        </View>
+
+        {/* Form Container con nuevo diseño */}
+        <View className="px-6 -mt-10">
+          <View className="bg-white rounded-3xl shadow-lg p-6 mb-6 border border-neutral-100">
+            <InputField
+              ref={nameInputRef}
+              label="Nombre completo"
+              placeholder="Ingrese su nombre"
+              icon={
+                <Ionicons name="person-outline" size={20} color="#77BEEA" />
+              }
+              textContentType="name"
+              value={form.name}
+              onChangeText={(value) => setForm({ ...form, name: value })}
+              returnKeyType="next"
+              onSubmitEditing={() => handleSubmitEditing(emailInputRef)}
+              className="mb-3"
+              inputStyle="bg-gray-100/50"
             />
+
+            <InputField
+              ref={emailInputRef}
+              label="Correo electrónico"
+              placeholder="Ingrese su correo"
+              icon={<Ionicons name="mail-outline" size={20} color="#77BEEA" />}
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              value={form.email}
+              onChangeText={(value) => setForm({ ...form, email: value })}
+              returnKeyType="next"
+              onSubmitEditing={() => handleSubmitEditing(passwordInputRef)}
+              className="mb-3"
+              inputStyle="bg-gray-100/50"
+            />
+
+            <InputField
+              ref={passwordInputRef}
+              label="Contraseña"
+              placeholder="Ingrese su contraseña"
+              icon={
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#77BEEA"
+                />
+              }
+              secureTextEntry={true}
+              textContentType="password"
+              value={form.password}
+              onChangeText={(value) => setForm({ ...form, password: value })}
+              onSubmitEditing={onSignUpPress}
+              className="mb-6"
+              inputStyle="bg-gray-100/50"
+            />
+
             <CustomButton
-              title="Reenviar Correo"
-              onPress={async () => {
-                const user = auth.currentUser
-                if (user) {
-                  await sendEmailVerification(user)
-                  Alert.alert(
-                    "Correo enviado",
-                    "Por favor revisa tu bandeja de entrada"
-                  )
-                }
-              }}
-              className="mt-3 bg-gray-500"
+              title="Registrarse"
+              onPress={onSignUpPress}
+              className="bg-[#77BEEA] py-4 rounded-xl shadow-md"
             />
           </View>
-        </ReactNativeModal>
 
-        <ReactNativeModal isVisible={isSecondModalVisible}>
-          <View className="bg-white px-7 py-9 rounded-2xl">
-            <Text className="font-JakartaExtraBold text-2xl mb-2">
-              ¡Registro Exitoso!
-            </Text>
-            <Text className="font-Jakarta mb-5">
-              Tu cuenta ha sido verificada exitosamente. Ya puedes comenzar a
-              usar la aplicación.
-            </Text>
-            <CustomButton
-              title="Comenzar"
-              onPress={() => {
-                setSecondModalVisible(false)
-                setTimeout(() => {
-                  router.push("/home")
-                }, 300)
-              }}
-              className="mt-5"
-            />
+          <View className="mb-6">
+            <OAuth />
+          </View>
+
+          <View className="w-full items-center mb-12">
+            <Link href="/sign-in">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-neutral-600 font-Jakarta">
+                  ¿Ya tienes una cuenta?
+                </Text>
+                <Text className="text-[#77BEEA] font-JakartaBold">
+                  Iniciar sesión
+                </Text>
+              </View>
+            </Link>
+          </View>
+        </View>
+
+        <ReactNativeModal
+          isVisible={isFirstModalVisible}
+          onBackdropPress={() => {}}
+          backdropTransitionOutTiming={0}
+          animationIn="fadeIn"
+          animationOut="fadeOut"
+          className="m-4"
+        >
+          <View className="bg-white rounded-3xl shadow-xl">
+            {/* Header del Modal */}
+            <View className="p-6 border-b border-neutral-100 flex-row items-center">
+              <View className="w-12 h-12 rounded-full bg-[#77BEEA]/10 items-center justify-center mr-4">
+                <Ionicons name="mail-outline" size={24} color="#77BEEA" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-JakartaBold text-2xl text-neutral-800 mb-1">
+                  Verificación de Correo
+                </Text>
+                <Text className="font-JakartaMedium text-neutral-600 text-base">
+                  Hemos enviado un enlace de verificación a{" "}
+                  <Text className="text-[#77BEEA] font-JakartaBold">
+                    {form.email}
+                  </Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* Contenido del Modal */}
+            <View className="p-6">
+              {verification.error && (
+                <View className="mb-4 p-4 bg-red-50 rounded-xl flex-row items-center">
+                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                  <Text className="text-red-500 ml-2 font-JakartaMedium flex-1">
+                    {verification.error}
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                onPress={onPressVerify}
+                className="bg-[#77BEEA] p-4 rounded-xl shadow-md flex-row items-center justify-center mb-4"
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={20}
+                  color="white"
+                />
+                <Text className="text-white font-JakartaBold ml-2">
+                  Confirmar Verificación
+                </Text>
+              </TouchableOpacity>
+
+              <View className="bg-blue-50 p-4 rounded-xl space-y-2">
+                <Text className="text-neutral-600 text-sm font-JakartaMedium">
+                  • Revisa tu bandeja de entrada y carpeta de spam
+                </Text>
+                <Text className="text-neutral-600 text-sm font-JakartaMedium">
+                  • El correo puede tardar unos minutos en llegar
+                </Text>
+                <Text className="text-neutral-600 text-sm font-JakartaMedium">
+                  • Asegúrate de hacer clic en el enlace de verificación
+                </Text>
+              </View>
+            </View>
           </View>
         </ReactNativeModal>
       </View>
