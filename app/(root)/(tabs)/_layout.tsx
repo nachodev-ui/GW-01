@@ -1,10 +1,8 @@
 import { Tabs, TabList, TabTrigger, TabSlot } from "expo-router/ui"
 import { Image, ImageSourcePropType, View } from "react-native"
-import { useEffect, useState } from "react"
-
-import { auth, db } from "@/firebaseConfig"
-import { doc, getDoc } from "firebase/firestore"
-
+import { useState } from "react"
+import { Ionicons } from "@expo/vector-icons"
+import { useAuthStore } from "@/store/authStore"
 import { icons } from "@/constants"
 import { RelativePathString } from "expo-router"
 
@@ -13,95 +11,119 @@ const TabIcon = ({
   focused,
   role,
   shouldRender = true,
+  isIonicon = false,
+  name = "",
 }: {
-  source: ImageSourcePropType
+  source: ImageSourcePropType | string
   focused: boolean
   role: string | null
   shouldRender?: boolean
+  isIonicon?: boolean
+  name?: string
 }) => {
-  if (!shouldRender) {
-    return null
-  }
+  if (!shouldRender) return null
 
   return (
-    <View
-      className={`flex justify-center items-center rounded-full ${
-        focused ? "bg-black" : ""
-      }`}
-    >
+    <View className="items-center justify-center">
       <View
-        className={`rounded-full w-12 h-12 flex justify-center items-center ${
+        className={`w-12 h-12 rounded-full items-center justify-center ${
           focused
-            ? { usuario: "bg-[#77BEEA]", proveedor: "bg-success-300" }[role!] ||
-              ""
-            : ""
+            ? role === "proveedor"
+              ? "bg-[#77BEEA]"
+              : "bg-[#77BEEA]"
+            : "bg-[#E8F4FB]"
         }`}
       >
-        <Image
-          source={source}
-          resizeMode="contain"
-          style={{ tintColor: "white", width: 28, height: 28 }}
-        />
+        {isIonicon ? (
+          <Ionicons
+            name={name as any}
+            size={24}
+            color={focused ? "white" : "#77BEEA"}
+          />
+        ) : (
+          <Image
+            source={source as ImageSourcePropType}
+            resizeMode="contain"
+            style={{
+              width: 24,
+              height: 24,
+              tintColor: focused ? "white" : "#77BEEA",
+            }}
+          />
+        )}
       </View>
     </View>
   )
 }
 
 export default function Layout() {
-  const [role, setRole] = useState<string | null>(null)
+  const role = useAuthStore((state) => state.role)
   const [currentTab, setCurrentTab] = useState<string>("home")
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, "userProfiles", user.uid))
-        const userData = userDoc.data()
-        setRole(userData?.tipoUsuario || null)
-      }
-    })
-
-    return () => unsubscribe()
-  }, [])
 
   const isFocused = (tab: string) => currentTab === tab
 
   const commonTabs = [
     { name: "home", icon: icons.home },
-    { name: "orders", icon: icons.list },
-    { name: "chat", icon: icons.chat },
+    {
+      name: "orders",
+      isIonicon: true,
+      iconName: "document-text-outline",
+    },
+    {
+      name: "favorites",
+      isIonicon: true,
+      iconName: "heart-outline",
+      userOnly: true,
+    },
     { name: "profile", icon: icons.profile },
   ]
+
+  const visibleTabs = commonTabs.filter((tab) => {
+    if (tab.userOnly && role === "proveedor") return false
+    return true
+  })
 
   return (
     <Tabs>
       <TabSlot />
       <TabList
         style={{
-          backgroundColor: "#333333",
+          backgroundColor: "white",
           marginHorizontal: 20,
-          paddingVertical: 10,
-          paddingHorizontal: 20,
-          borderRadius: 50,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderRadius: 20,
           position: "absolute",
           bottom: 20,
           left: 0,
           right: 0,
           flexDirection: "row",
           justifyContent: "space-between",
+          shadowColor: "#77BEEA",
+          shadowOffset: {
+            width: 0,
+            height: 4,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          elevation: 5,
+          borderWidth: 1,
+          borderColor: "#E8F4FB",
         }}
       >
-        {commonTabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <TabTrigger
             key={tab.name}
             name={tab.name}
-            href={`/${tab.name}` as RelativePathString}
+            href={`/(tabs)/${tab.name}` as RelativePathString}
             onPress={() => setCurrentTab(tab.name)}
           >
             <TabIcon
               source={tab.icon}
               focused={isFocused(tab.name)}
               role={role}
-              shouldRender={tab.name !== "chat" || role === "proveedor"}
+              isIonicon={tab.isIonicon}
+              name={tab.iconName}
             />
           </TabTrigger>
         ))}
