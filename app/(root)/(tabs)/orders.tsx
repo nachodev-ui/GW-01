@@ -1,5 +1,12 @@
-import React, { useEffect, useCallback } from "react"
-import { Text, FlatList, RefreshControl, View } from "react-native"
+import React, { useEffect, useCallback, useMemo, useState } from "react"
+import {
+  Text,
+  FlatList,
+  RefreshControl,
+  View,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { LinearGradient } from "expo-linear-gradient"
 import { Ionicons } from "@expo/vector-icons"
@@ -7,34 +14,38 @@ import { Ionicons } from "@expo/vector-icons"
 import OrderCard from "@/components/OrderCard"
 import { usePedidoStore, useUserStore } from "@/store"
 
-const Iris = () => {
-  const { isProveedor } = useUserStore()
-  const { pedidos, fetchPedidosByUserType, loading } = usePedidoStore()
-
-  const loadPedidos = useCallback(async () => {
-    try {
-      await fetchPedidosByUserType()
-    } catch (error) {
-      console.error("Error al cargar pedidos:", error)
-    }
-  }, [fetchPedidosByUserType])
+const Orders = () => {
+  const { isProveedor, id: userId } = useUserStore()
+  const { pedidos, loading, initializePedidosListener } = usePedidoStore()
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState("Todos")
+  const estadosPosibles = ["Todos", "Llegado", "Rechazado"]
 
   useEffect(() => {
-    loadPedidos()
-  }, [loadPedidos])
+    if (!userId) return
 
-  const pedidosCompletados = pedidos.filter((pedido) => {
-    if (isProveedor) {
-      return (
-        pedido.conductorId === useUserStore.getState().id &&
-        pedido.estado === "Llegado"
-      )
+    console.log("[DEBUG - Orders] Montando componente:", {
+      userId,
+      isProveedor,
+    })
+    const unsubscribe = initializePedidosListener(userId)
+
+    return () => {
+      console.log("[DEBUG - Orders] Desmontando componente")
+      unsubscribe()
     }
-    return (
-      pedido.clienteId === useUserStore.getState().id &&
-      pedido.estado === "Llegado"
-    )
-  })
+  }, [userId, isProveedor])
+
+  const pedidosFiltrados = useMemo(() => {
+    if (estadoSeleccionado === "Todos") return pedidos
+    return pedidos.filter((pedido) => pedido.estado === estadoSeleccionado)
+  }, [pedidos, estadoSeleccionado])
+
+  const onRefresh = useCallback(() => {
+    if (userId) {
+      console.log("[DEBUG - Orders] Refrescando pedidos")
+      initializePedidosListener(userId)
+    }
+  }, [userId])
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -54,8 +65,38 @@ const Iris = () => {
       </View>
 
       <View className="flex-1 bg-white rounded-t-3xl px-4 pt-4">
+        <View className="mb-4">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingRight: 20 }}
+          >
+            {estadosPosibles.map((estado) => (
+              <TouchableOpacity
+                key={estado}
+                onPress={() => setEstadoSeleccionado(estado)}
+                className={`px-4 py-2 rounded-full mr-2 ${
+                  estadoSeleccionado === estado
+                    ? "bg-[#77BEEA]"
+                    : "bg-[#E8F4FB]"
+                }`}
+              >
+                <Text
+                  className={`font-JakartaMedium ${
+                    estadoSeleccionado === estado
+                      ? "text-white"
+                      : "text-[#2B5F7E]"
+                  }`}
+                >
+                  {estado}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         <FlatList
-          data={pedidosCompletados}
+          data={pedidosFiltrados}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View className="mb-4">
@@ -68,7 +109,7 @@ const Iris = () => {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={loadPedidos}
+              onRefresh={onRefresh}
               tintColor="#77BEEA"
             />
           }
@@ -85,10 +126,10 @@ const Iris = () => {
                 />
               </View>
               <Text className="text-xl font-JakartaBold text-[#2B5F7E] mb-2">
-                Sin historial
+                Sin pedidos
               </Text>
               <Text className="text-[#747e84] text-center px-10">
-                No hay pedidos completados para mostrar en este momento
+                No hay pedidos {estadoSeleccionado.toLowerCase()} para mostrar
               </Text>
             </View>
           )}
@@ -98,4 +139,4 @@ const Iris = () => {
   )
 }
 
-export default Iris
+export default Orders
