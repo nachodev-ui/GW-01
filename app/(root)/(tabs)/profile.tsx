@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Ionicons } from "@expo/vector-icons"
+import { useRouter } from "expo-router"
 
 import InputField from "@/components/InputField"
 import ProviderForm from "@/components/ProviderForm"
@@ -37,48 +38,14 @@ const Profile = () => {
     setFirstName,
     setLastName,
     validateAndSetPhone,
+    uploadProfileImage,
   } = useUserStore()
 
   const [isProviderFormVisible, setIsProviderFormVisible] =
     useState<boolean>(false)
-  const [showModal, setShowModal] = useState<boolean>(false)
   const [refreshing, setRefreshing] = useState<boolean>(false)
 
-  useEffect(() => {
-    const checkModalStatus = async () => {
-      try {
-        const hasSeenModal = await AsyncStorage.getItem("hasSeenModal")
-        if (!hasSeenModal && tipoUsuario !== "proveedor") {
-          setShowModal(true)
-          console.log("Mostrando modal de proveedor")
-        }
-      } catch (error) {
-        console.error("Error al verificar estado del modal:", error)
-      }
-    }
-
-    checkModalStatus()
-  }, [tipoUsuario])
-
-  const handleDismiss = async () => {
-    try {
-      await AsyncStorage.setItem("hasSeenModal", "true")
-      setShowModal(false)
-      console.log("Modal descartado y estado guardado")
-    } catch (error) {
-      console.error("Error al guardar estado del modal:", error)
-    }
-  }
-
-  const resetModal = async () => {
-    try {
-      await AsyncStorage.removeItem("hasSeenModal")
-      setShowModal(true)
-      console.log("Modal reseteado")
-    } catch (error) {
-      console.error("Error al resetear modal:", error)
-    }
-  }
+  const router = useRouter()
 
   useEffect(() => {
     fetchUserData()
@@ -136,12 +103,12 @@ const Profile = () => {
       {tipoUsuario !== "proveedor" && (
         <TouchableOpacity
           onPress={handleOpenProviderForm}
-          className="absolute top-20 right-4 z-10 bg-[#1c1c1c]/10 rounded-full px-4 py-2 flex-row items-center shadow-sm"
+          className="absolute top-20 right-4 z-10 bg-[#E8F4FB] rounded-full px-4 py-2 flex-row items-center"
         >
-          <Text className="text-white text-sm font-JakartaSemiBold mr-1">
+          <Text className="text-[#77BEEA] text-sm font-JakartaSemiBold mr-1">
             Ser proveedor
           </Text>
-          <Ionicons name="arrow-forward-circle" size={18} color="white" />
+          <Ionicons name="arrow-forward-circle" size={18} color="#77BEEA" />
         </TouchableOpacity>
       )}
 
@@ -157,37 +124,77 @@ const Profile = () => {
           />
         }
       >
-        <View className="h-32 bg-[#77BEEA]">
-          <View className="px-6 pt-4">
-            <Text className="text-2xl font-JakartaBold text-white">
-              Mi Perfil
-            </Text>
-          </View>
+        <View className="px-6 pt-4 pb-6">
+          <Text className="text-2xl font-JakartaBold text-neutral-800 mb-8">
+            Mi Perfil
+          </Text>
 
-          <View className="absolute -bottom-20 w-full items-center">
-            <View className="relative">
-              <Image
-                source={{ uri: photoURL || "https://via.placeholder.com/120" }}
-                className="h-36 w-36 rounded-full border-4 border-white"
-              />
-              <TouchableOpacity
-                className="absolute bottom-2 right-2 bg-white p-2.5 rounded-full"
-                onPress={() =>
-                  Alert.alert("Próximamente", "Función en desarrollo")
-                }
-              >
-                <Ionicons name="camera" size={22} color="#77BEEA" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+          <View className="items-center mb-8">
+            <View className="relative w-full items-center">
+              <View className="absolute top-2 left-8">
+                <View className="w-3 h-3 rounded-full bg-[#77BEEA] opacity-20" />
+              </View>
+              <View className="absolute top-10 left-4">
+                <View className="w-2 h-2 rounded-full bg-[#77BEEA] opacity-30" />
+              </View>
+              <View className="absolute top-4 right-10">
+                <View className="w-4 h-4 rounded-full bg-[#77BEEA] opacity-15" />
+              </View>
+              <View className="absolute top-12 right-6">
+                <View className="w-2 h-2 rounded-full bg-[#77BEEA] opacity-25" />
+              </View>
 
-        <View className="px-6 pt-14">
-          <View className="flex-row justify-end mb-4">
-            <View className="bg-[#77BEEA]/10 px-4 py-1.5 rounded-full">
-              <Text className="text-[#77BEEA] font-JakartaSemiBold">
-                {tipoUsuario === "proveedor" ? "Proveedor" : "Usuario"}
-              </Text>
+              <View className="absolute top-14 left-12 w-16 h-[1px] bg-[#77BEEA] opacity-10 rotate-45" />
+              <View className="absolute top-14 right-12 w-16 h-[1px] bg-[#77BEEA] opacity-10 -rotate-45" />
+
+              <View className="relative">
+                <View className="bg-[#E8F4FB] rounded-full p-2">
+                  <Image
+                    source={{
+                      uri: photoURL || "https://via.placeholder.com/120",
+                    }}
+                    className="h-28 w-28 rounded-full border-4 border-white"
+                  />
+                </View>
+                <TouchableOpacity
+                  className="absolute bottom-2 right-2 bg-white p-2.5 rounded-full shadow-sm"
+                  onPress={async () => {
+                    try {
+                      await uploadProfileImage()
+                    } catch (error) {
+                      console.error("Error detallado:", error)
+                      Alert.alert(
+                        "Error",
+                        error instanceof Error
+                          ? error.message
+                          : "No se pudo actualizar la imagen de perfil. Intenta nuevamente."
+                      )
+                    }
+                  }}
+                >
+                  <Ionicons name="camera" size={22} color="#77BEEA" />
+                </TouchableOpacity>
+              </View>
+
+              <View className="mt-4 items-center">
+                <Text className="text-lg font-JakartaBold text-neutral-800 mb-2">
+                  {firstName} {lastName}
+                </Text>
+                <View className="flex-row items-center bg-[#F8FBFD] px-4 py-1.5 rounded-full border border-[#E8F4FB]">
+                  <Ionicons
+                    name={
+                      tipoUsuario === "proveedor"
+                        ? "business-outline"
+                        : "person-outline"
+                    }
+                    size={16}
+                    color="#77BEEA"
+                  />
+                  <Text className="text-[#77BEEA] font-JakartaMedium ml-2">
+                    {tipoUsuario === "proveedor" ? "Proveedor" : "Usuario"}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -232,7 +239,7 @@ const Profile = () => {
           <View className="mt-8 mb-10">
             <TouchableOpacity
               onPress={handleSaveProfile}
-              className="w-full bg-[#77BEEA] rounded-2xl shadow-sm shadow-[#77BEEA]/30"
+              className="w-full bg-[#77BEEA] rounded-2xl shadow-sm shadow-[#77BEEA]/30 mb-4"
             >
               <View className="flex-row items-center justify-center py-4">
                 <Ionicons name="cloud-upload-outline" size={22} color="white" />
@@ -241,41 +248,23 @@ const Profile = () => {
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {tipoUsuario === "proveedor" && (
+              <TouchableOpacity
+                onPress={() => router.push("/(root)/management")}
+                className="w-full bg-[#77BEEA]/10 rounded-2xl mb-8"
+              >
+                <View className="flex-row items-center justify-center py-4">
+                  <Ionicons name="cube-outline" size={22} color="#77BEEA" />
+                  <Text className="text-[#77BEEA] text-base font-JakartaBold ml-3">
+                    Gestionar Productos
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </KeyboardAwareScrollView>
-
-      {tipoUsuario !== "proveedor" && showModal && (
-        <Modal visible={true} transparent animationType="fade">
-          <View className="flex-1 justify-center items-center bg-black/50">
-            <View className="bg-white rounded-3xl p-6 w-[85%] shadow-lg">
-              <Text className="text-2xl font-JakartaBold text-center mb-3 text-[#77BEEA]">
-                ¡Conviértete en proveedor!
-              </Text>
-              <Text className="text-base text-gray-600 text-center mb-6 font-Jakarta">
-                Únete a nosotros para vender tus productos en nuestra
-                plataforma.
-              </Text>
-              <TouchableOpacity
-                onPress={handleOpenProviderForm}
-                className="w-full bg-[#77BEEA] rounded-2xl p-4 flex-row items-center justify-center"
-              >
-                <Text className="text-white text-base font-JakartaBold">
-                  Registrarme como proveedor
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleDismiss}
-                className="w-full mt-3 bg-[#77BEEA]/10 rounded-2xl p-4 flex-row items-center justify-center"
-              >
-                <Text className="text-[#77BEEA] text-base font-JakartaBold">
-                  No, gracias
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
 
       {tipoUsuario !== "proveedor" && (
         <Modal
