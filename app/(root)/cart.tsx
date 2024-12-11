@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Platform,
   Image,
   ScrollView,
   ActivityIndicator,
@@ -16,8 +15,6 @@ import * as WebBrowser from "expo-web-browser"
 
 import axios from "axios"
 
-import CustomButton from "@/components/CustomButton"
-
 import { useLocationStore, usePedidoStore, useUserStore } from "@/store"
 import { useCartStore } from "@/services/cart/cart.store"
 import {
@@ -27,22 +24,20 @@ import {
 } from "@/services/transbank/tbk.store"
 import { handleKhipuPayment } from "@/services/khipu/khipu.handler"
 
-import { formatToChileanPesos, getImageForBrand } from "@/lib/utils"
-import { icons } from "@/constants"
+import { formatToChileanPesos } from "@/lib/utils"
 import { Pedido } from "@/types/type"
+import { getProductImage } from "@/constants"
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, clearCart } = useCartStore(
     (state) => state
   )
-  const { setTransaction } = useTransactionStore((state) => state)
+  const { setTransaction, setToken } = useTransactionStore((state) => state)
   const { user, fetchUserData } = useUserStore((state) => state)
   const { setPedidoActual } = usePedidoStore((state) => state)
   const { userLocation, selectedProviderLocation } = useLocationStore(
     (state) => state
   )
-
-  const [isLoading, setIsLoading] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
@@ -85,7 +80,7 @@ const Cart = () => {
         axios.post(
           "https://gw-back.onrender.com/api/transbank/create",
           tbkData,
-          { timeout: 10000 }
+          { timeout: 15000 }
         )
       )
 
@@ -94,6 +89,9 @@ const Cart = () => {
       }
 
       const { url, token } = response.data
+      setToken(token)
+      console.log("(DEBUG - Cart) Token de la transacción:", token)
+
       console.log("4. Respuesta recibida, URL y token obtenidos")
 
       console.log("5. Abriendo WebBrowser")
@@ -146,50 +144,53 @@ const Cart = () => {
 
       const { response_code }: TransbankResponse = data
 
+      const transactionWithToken = {
+        ...data,
+        token_ws: token,
+      }
+
       if (response_code !== 0) {
         throw new Error("Error en la respuesta de la transacción")
       }
+      setTransaction(transactionWithToken)
+      setToken(token)
 
-      setTransaction(data)
+      console.log(
+        "(DEBUG - GET - Cart) Transacción actualizada:",
+        transactionWithToken
+      )
 
-      if (isProcessing === false) {
-        setTimeout(() => {
-          Alert.alert("Transacción confirmada", "La transacción fue exitosa")
-          router.push("/finished")
-        }, 5000)
+      if (!isProcessing) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        router.push("/finished")
       }
 
-      console.log("(TS EXITOSA): Detalles de la transacción:", data)
-
-      return data
+      return transactionWithToken
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        console.error(
-          "(GET): Error al obtener los detalles de la transacción:",
-          err.response?.data
-        )
-      } else {
-        console.error("(GET): Error desconocido:", err)
-      }
+      const errorMessage = axios.isAxiosError(err)
+        ? `Error de red: ${err.response?.data.message || err.message}`
+        : `Error: ${err instanceof Error ? err.message : "Error desconocido"}`
+
+      console.error(
+        "(DEBUG - Cart): Error al obtener los detalles de la transacción:",
+        errorMessage
+      )
+
+      Alert.alert("Error", errorMessage)
     }
   }
 
   const handleCrearPedido = async () => {
     const { crearNuevoPedido } = usePedidoStore.getState()
     const { items } = useCartStore.getState()
+    const { transaction, token_ws } = useTransactionStore.getState()
 
     if (items.length === 0) {
       Alert.alert("El carrito está vacío. No se puede crear un pedido.")
       return
     }
 
-    // Calcular el precio total basado en los productos del carrito
-    const precioTotal = items.reduce(
-      (total, item) => total + item.product.precio * item.quantity,
-      0
-    )
-
-    const pedidoData: Omit<Pedido, "id" | "timestamp"> = {
+    const pedidoData: Omit<Pedido, "id" | "timestamp" | "precio"> = {
       clienteId: user?.id || "",
       nombreCliente: user?.firstName + " " + user?.lastName || "Cliente",
       conductorId: selectedProviderLocation?.id || "",
@@ -203,24 +204,33 @@ const Cart = () => {
         latitude: userLocation?.latitude || 0,
         longitude: userLocation?.longitude || 0,
       },
-      producto: items, // Productos del carrito
-      precio: precioTotal,
+      producto: items,
       estado: "Pendiente",
+      transactionData: {
+        token: token_ws,
+        amount: transaction.amount,
+        status: transaction.status,
+      },
     }
 
     try {
       const nuevoPedido = await crearNuevoPedido(pedidoData)
 
+      if (!nuevoPedido) {
+        throw new Error("(DEBUG - Cart): No se pudo crear el pedido")
+      }
+
       setPedidoActual({
         ...pedidoData,
-        id: "",
+        id: nuevoPedido.id,
+        precio: nuevoPedido.precio,
         timestamp: new Date(),
       })
+
       console.log(
-        "(DEBUG) Pedido actualizado en el estado:",
+        "(DEBUG - Cart) Pedido actualizado en el estado:",
         usePedidoStore.getState().pedidoActual
       )
-      console.log("(DEBUG) Nuevo pedido creado:", nuevoPedido)
     } catch (error) {
       console.error("Error al crear el pedido:", error)
     }
@@ -238,151 +248,162 @@ const Cart = () => {
   }
 
   return (
-    <>
+    <View className="flex-1 bg-white">
       <ScrollView
-        className={`${Platform.OS === "ios" ? "p-6 mt-16" : "p-4"} flex-1`}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
       >
-        {isLoading && (
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-          >
-            <Text>Esperando confirmación...</Text>
-            <ActivityIndicator size="large" />
+        {/* Header */}
+        <View className="bg-[#77BEEA] pt-14 pb-6 rounded-b-[32px]">
+          <View className="px-6 flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className="bg-white/20 p-2 rounded-full"
+            >
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <Text className="text-xl font-JakartaBold text-white">
+              Mi Carrito
+            </Text>
+            <View className="w-10" />
           </View>
-        )}
-        <View className="flex-row items-center mb-6">
-          <TouchableOpacity onPress={() => router.back()}>
-            <View className="w-10 h-10 mr-2 rounded-full items-center justify-center">
-              <Image
-                source={icons.backArrow}
-                resizeMode="contain"
-                className="w-6 h-6"
-              />
-            </View>
-          </TouchableOpacity>
-          <Text className="text-xl font-JakartaSemiBold text-gray-800">
-            Carro de compras
-          </Text>
         </View>
 
         {items.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <Image
-              source={require("@/assets/images/empty-cart.png")}
-              className="mt-4 w-64 h-64 mx-auto"
-              resizeMode="contain"
-            />
-            <Text className="text-xl font-JakartaBold text-center text-gray-900">
+          <View className="flex-1 items-center justify-center px-6 pt-10">
+            <View className="bg-[#E8F4FB] p-6 rounded-full mb-6">
+              <Ionicons name="cart-outline" size={64} color="#77BEEA" />
+            </View>
+            <Text className="text-xl font-JakartaBold text-center text-neutral-800 mb-2">
               Tu carrito está vacío
             </Text>
-            <Text className="text-lg font-Jakarta text-center text-gray-700 mt-2">
+            <Text className="text-base font-Jakarta text-center text-neutral-600 mb-6">
               ¡Agrega productos para comenzar a comprar!
             </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/(root)/(tabs)/home")}
+              className="bg-[#77BEEA] px-6 py-3 rounded-full flex-row items-center"
+            >
+              <Ionicons name="add-circle-outline" size={20} color="white" />
+              <Text className="text-white font-JakartaBold ml-2">
+                Explorar Productos
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
-          <>
-            <View className="space-y-4">
+          <View className="px-6">
+            <View className="mt-6 space-y-4">
               {items.map((item) => (
                 <View
                   key={item.product.id}
-                  className="flex-row items-center justify-between bg-zinc-50 rounded-md shadow-sm p-3"
+                  className="bg-white rounded-2xl p-4 border border-[#E8F4FB] shadow-sm"
                 >
                   <View className="flex-row items-center space-x-4">
-                    <Image
-                      source={getImageForBrand(item.product.marca)}
-                      className="w-12 h-12"
-                    />
-                    <View>
-                      <Text className="text-lg font-semibold text-gray-800">
+                    <View className="bg-[#F8FBFD] p-2 rounded-xl">
+                      <Image
+                        source={getProductImage(
+                          item.product.marca,
+                          item.product.formato
+                        )}
+                        className="w-16 h-16"
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-lg font-JakartaBold text-neutral-800">
                         {item.product.nombre}
                       </Text>
-                      <Text className="text-sm text-gray-500">
-                        {item.quantity} x{" "}
+                      <Text className="text-sm font-JakartaMedium text-neutral-500">
+                        {item.product.marca} • {item.product.formato}
+                      </Text>
+                      <Text className="text-lg font-JakartaBold text-[#77BEEA] mt-1">
                         {formatToChileanPesos(item.product.precio)}
                       </Text>
-                      <Text className="text-lg text-gray-700 mt-2">
-                        {formatToChileanPesos(
-                          item.product.precio * item.quantity
-                        )}
-                      </Text>
                     </View>
-                  </View>
-
-                  <View className="flex-row items-center space-x-4">
-                    <TouchableOpacity
-                      onPress={() =>
-                        item.product.id &&
-                        updateQuantity(item.product.id, item.quantity - 1)
-                      }
-                      className="bg-gray-200 p-2 rounded-full"
-                    >
-                      <Text className="text-lg text-gray-800">−</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() =>
-                        item.product.id &&
-                        updateQuantity(item.product.id, item.quantity + 1)
-                      }
-                      className="bg-gray-200 p-2 rounded-full"
-                    >
-                      <Text className="text-lg text-gray-800">+</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() =>
-                        item.product.id && removeItem(item.product.id)
-                      }
-                      className="bg-red-500 p-2 rounded-full"
-                    >
-                      <Ionicons name="trash" size={20} color="white" />
-                    </TouchableOpacity>
+                    <View className="items-end space-y-2">
+                      <TouchableOpacity
+                        onPress={() =>
+                          item.product.id && removeItem(item.product.id)
+                        }
+                        className="bg-red-100 p-2 rounded-full"
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#EF4444"
+                        />
+                      </TouchableOpacity>
+                      <View className="flex-row items-center bg-[#F8FBFD] rounded-full">
+                        <TouchableOpacity
+                          onPress={() =>
+                            item.product.id &&
+                            updateQuantity(item.product.id, item.quantity - 1)
+                          }
+                          className="p-2"
+                        >
+                          <Ionicons name="remove" size={18} color="#77BEEA" />
+                        </TouchableOpacity>
+                        <Text className="px-3 font-JakartaBold text-neutral-800">
+                          {item.quantity}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() =>
+                            item.product.id &&
+                            updateQuantity(item.product.id, item.quantity + 1)
+                          }
+                          className="p-2"
+                        >
+                          <Ionicons name="add" size={18} color="#77BEEA" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
                 </View>
               ))}
             </View>
 
-            <View className="mt-6 border-t border-gray-300 pt-6">
-              <Text className="text-xl font-JakartaMedium text-gray-900">
-                Total: {formatToChileanPesos(total)}
-              </Text>
-              <CustomButton
-                title="Vaciar carrito"
-                onPress={clearCart}
-                className="mt-2"
-                bgVariant="outline"
-                textVariant="danger"
-              />
-            </View>
+            {/* Resumen y botones */}
+            <View className="mt-6 bg-[#F8FBFD] p-6 rounded-2xl">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-base font-JakartaMedium text-neutral-600">
+                  Total ({items.length} productos)
+                </Text>
+                <Text className="text-xl font-JakartaBold text-neutral-800">
+                  {formatToChileanPesos(total)}
+                </Text>
+              </View>
 
-            <View className="mt-6 border-t border-gray-300 pt-6">
-              <Text className="text-lg font-JakartaSemiBold text-center text-gray-900">
-                ¿Listo para continuar con tu orden?
-              </Text>
-
-              <Image
-                source={require("@/assets/icons/checkout-illustration.png")}
-                className="mt-4 w-48 h-48 mx-auto"
-                resizeMode="contain"
-              />
-
-              <CustomButton
-                title="Continuar con el pago"
+              <TouchableOpacity
                 onPress={handleBuyTesting}
-                className="mt-2 w-full mb-8"
-                bgVariant="primary"
-              />
+                className="bg-[#77BEEA] py-4 rounded-xl mb-3"
+              >
+                <Text className="text-white text-center font-JakartaBold">
+                  Continuar con el pago
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={clearCart}
+                className="bg-red-50 py-4 rounded-xl"
+              >
+                <Text className="text-red-500 text-center font-JakartaBold">
+                  Vaciar carrito
+                </Text>
+              </TouchableOpacity>
             </View>
-          </>
+          </View>
         )}
       </ScrollView>
 
-      {/* Modal de Procesamiento */}
+      {/* Modal de Procesamiento (actualizado) */}
       <Modal visible={isProcessing} transparent animationType="fade">
         <View className="flex-1 bg-black/50 justify-center items-center">
-          <View className="bg-white p-6 rounded-2xl w-[80%] items-center">
-            <View className="bg-[#77BEEA]/10 p-4 rounded-full mb-4">
+          <View className="bg-white p-8 rounded-3xl w-[85%] items-center">
+            <View className="bg-[#E8F4FB] p-6 rounded-full mb-6">
               <ActivityIndicator size="large" color="#77BEEA" />
             </View>
-            <Text className="text-lg font-JakartaBold text-neutral-800 text-center mb-2">
+            <Text className="text-xl font-JakartaBold text-neutral-800 text-center mb-2">
               Procesando tu pago
             </Text>
             <Text className="text-neutral-600 font-Jakarta text-center">
@@ -391,7 +412,7 @@ const Cart = () => {
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   )
 }
 
