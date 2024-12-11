@@ -41,7 +41,30 @@ const Layout = () => {
           headerShown: false,
         }}
       />
-      <Stack.Screen name="products" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="management"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="products"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="pedido-rechazado"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="order-details"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   )
 }
