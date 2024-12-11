@@ -26,12 +26,12 @@ import { MENSAJES_RAPIDOS } from "@/constants/index"
 import { Ionicons } from "@expo/vector-icons"
 import { sendPushNotification, getUserPushToken } from "@/lib/notifications"
 import { useUserStore } from "@/store"
+import { router } from "expo-router"
 
 const ChatScreen = () => {
   const params = useLocalSearchParams()
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [mensaje, setMensaje] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
   const flatListRef = useRef<FlatList>(null)
   const { id: userId, firstName, lastName, tipoUsuario } = useUserStore()
 
@@ -131,7 +131,10 @@ const ChatScreen = () => {
       keyboardVerticalOffset={Platform.OS === "ios" ? -10 : 0} // Valor negativo para iOS
     >
       <View className="flex-1">
-        <View className="bg-white py-4 px-4 border-b border-gray-100 mt-12">
+        <View className="bg-white py-4 px-4 border-b border-gray-100 mt-12 flex-row items-center">
+          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
           <Text className="text-xl font-JakartaBold text-gray-800">Chat</Text>
         </View>
 
