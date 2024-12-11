@@ -5,7 +5,7 @@ import { Alert } from "react-native"
 import { Product } from "@/types/type"
 
 export interface CartProduct {
-  product: Product
+  product: Omit<Product, "quantity">
   quantity: number
 }
 
@@ -34,12 +34,14 @@ export const useCartStore = create<CartState>((set) => ({
         (item) => item.product.id === product.id
       )
       if (existingItem) {
-        // Limitar la cantidad a 5
         if (existingItem.quantity < 5) {
           return {
             items: state.items.map((item) =>
               item.product.id === product.id
-                ? { ...item, quantity: item.quantity + 1 }
+                ? {
+                    quantity: item.quantity + 1,
+                    product: product,
+                  }
                 : item
             ),
           }
@@ -47,10 +49,18 @@ export const useCartStore = create<CartState>((set) => ({
           showNotification(
             "Por el momento solo puedes agregar hasta 5 unidades de un mismo producto al carrito"
           )
-          return { items: state.items } // No se actualiza el carrito si la cantidad es 5
+          return { items: state.items }
         }
       } else {
-        return { items: [...state.items, { product, quantity: 1 }] }
+        return {
+          items: [
+            ...state.items,
+            {
+              product,
+              quantity: 1,
+            },
+          ],
+        }
       }
     }),
   removeItem: (productId) =>
@@ -61,7 +71,7 @@ export const useCartStore = create<CartState>((set) => ({
     set((state) => {
       if (quantity < 1) {
         showNotification("No puedes agregar menos de 1 unidad al carrito.")
-        return state // No actualiza el carrito si la cantidad es menor que 1
+        return state
       }
       return {
         items: state.items.map((item) =>
