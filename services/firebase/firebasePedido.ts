@@ -8,22 +8,89 @@ import {
   getDocs,
   orderBy,
   limit,
+  getDoc,
+  doc,
+  updateDoc,
 } from "firebase/firestore"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Pedido } from "@/types/type"
+import { CartProduct } from "../cart/cart.store"
+
+interface UpdateStockResult {
+  success: boolean
+  error?: string
+  updatedProducts?: any[]
+}
 
 export const crearPedido = async (
-  pedidoData: Omit<Pedido, "id" | "timestamp">
+  pedidoData: Omit<Pedido, "id" | "timestamp" | "precio">
 ) => {
   try {
+    const timestamp = new Date()
+    const precio = pedidoData.producto.reduce(
+      (total, item) => total + item.product.precio * item.quantity,
+      0
+    )
+
     const docRef = await addDoc(collection(db, "pedidos"), {
       ...pedidoData,
-      timestamp: new Date(),
+      precio,
+      timestamp,
     })
-    return docRef.id
+
+    return { id: docRef.id, ...pedidoData, precio, timestamp } as Pedido
   } catch (error) {
     console.error("Error al crear el pedido:", error)
     throw error
+  }
+}
+
+export const updateProductStock = async (
+  proveedorId: string,
+  productos: CartProduct[]
+): Promise<UpdateStockResult> => {
+  try {
+    const providerDocRef = doc(db, "providerProducts", proveedorId)
+    const providerDoc = await getDoc(providerDocRef)
+
+    if (!providerDoc.exists()) {
+      return { success: false, error: "Productos del proveedor no encontrados" }
+    }
+    const providerProducts = providerDoc.data().products || []
+    const updatedProducts = [...providerProducts]
+
+    for (const pedidoItem of productos) {
+      const productIndex = updatedProducts.findIndex(
+        (p) => p.id === pedidoItem.product.id
+      )
+
+      if (productIndex === -1) {
+        return { success: false, error: "Producto no encontrado" }
+      }
+
+      const newStock = updatedProducts[productIndex].stock - pedidoItem.quantity
+
+      if (newStock < 0) {
+        return { success: false, error: "Stock insuficiente" }
+      }
+
+      updatedProducts[productIndex] = {
+        ...updatedProducts[productIndex],
+        stock: newStock,
+      }
+    }
+
+    await updateDoc(providerDocRef, {
+      products: updatedProducts,
+    })
+
+    return { success: true, updatedProducts: updatedProducts }
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Error al actualizar el stock",
+    }
   }
 }
 
