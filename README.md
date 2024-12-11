@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo-dark.png" alt="Gasway Logo" width="180" height="180" style="margin: 20px 0"/>
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="Gasway Logo" width="180" height="180" style="margin: 20px 0; background: #20232a; padding: 20px; border-radius: 50%;"/>
   
   # Gasway Application
   
@@ -15,14 +15,12 @@
   </div>
 
   <div style="margin: 20px 0;">
-    <a href="#" style="color: #3b82f6; text-decoration: none; margin: 0 10px;">Ver Demo</a>
-    •
     <a href="#" style="color: #3b82f6; text-decoration: none; margin: 0 10px;">Documentación</a>
     •
     <a href="#" style="color: #3b82f6; text-decoration: none; margin: 0 10px;">Reportar Bug</a>
   </div>
 
-  <img src="assets/preview-dark.png" alt="Gasway Preview" style="border-radius: 12px; margin: 30px 0; max-width: 800px"/>
+  <img src="https://user-images.githubusercontent.com/24864482/173254656-c1dac0bd-9bbd-4dca-9423-90f40a5556dd.png" alt="Gasway Preview" style="border-radius: 12px; margin: 30px 0; max-width: 800px"/>
 </div>
 
 ## ⚡ Características Principales
