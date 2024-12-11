@@ -1,7 +1,5 @@
 import { router } from "expo-router"
-import { Alert, Image, Text, View } from "react-native"
-
-import CustomButton from "@/components/CustomButton"
+import { Image, Text, View, TouchableOpacity } from "react-native"
 import { icons } from "@/constants"
 
 const OAuth = () => {
@@ -22,27 +20,34 @@ const OAuth = () => {
     */
 
   return (
-    <View>
-      <View className="flex flex-row justify-center items-center mt-4 gap-x-3">
-        <View className="flex-1 h-[1px] bg-general-100" />
-        <Text className="text-lg">Or</Text>
-        <View className="flex-1 h-[1px] bg-general-100" />
+    <View className="w-full">
+      <View className="flex-row items-center mb-6">
+        <View className="flex-1 h-[1px] bg-neutral-200" />
+        <Text className="mx-4 text-neutral-500 font-JakartaMedium">
+          O continúa con
+        </Text>
+        <View className="flex-1 h-[1px] bg-neutral-200" />
       </View>
 
-      <CustomButton
-        title="Iniciar con Google"
-        className="mt-5 w-full shadow-none"
-        IconLeft={() => (
-          <Image
-            source={icons.google}
-            resizeMode="contain"
-            className="w-5 h-5 mx-2"
-          />
-        )}
-        bgVariant="outline"
-        textVariant="primary"
+      <TouchableOpacity
         // onPress={handleGoogleSignIn}
-      />
+        className="flex-row items-center justify-center py-3.5 px-6 rounded-xl border border-neutral-200 bg-white shadow-sm"
+        style={{
+          shadowColor: "#000",
+          shadowOffset: {
+            width: 0,
+            height: 1,
+          },
+          shadowOpacity: 0.08,
+          shadowRadius: 2,
+          elevation: 2,
+        }}
+      >
+        <Image source={icons.google} className="w-5 h-5" resizeMode="contain" />
+        <Text className="ml-3 text-neutral-700 font-JakartaSemiBold">
+          Continuar con Google
+        </Text>
+      </TouchableOpacity>
     </View>
   )
 }
