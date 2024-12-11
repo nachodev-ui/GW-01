@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import {
   Text,
   View,
@@ -6,14 +6,16 @@ import {
   FlatList,
   ActivityIndicator,
   Modal,
+  Image,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Redirect } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import { router } from "expo-router"
 
 import { useUserStore, useProductStore } from "@/store"
 import { Product } from "@/types/type"
-import { formatToChileanPesos } from "@/lib/utils"
+import { formatToChileanPesos, getImageForBrand } from "@/lib/utils"
 import InputField from "@/components/InputField"
 
 interface EditModalProps {
@@ -131,37 +133,98 @@ const ProductCard = ({
 
 const ProductList = () => {
   const { user } = useUserStore()
-  const { products, deleteProduct, updateProduct, loading } = useProductStore()
+  const { products, deleteProduct, updateProduct, loading, fetchProducts } =
+    useProductStore()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchProducts(user.id)
+    }
+  }, [user?.id])
+
+  // Función para ordenar por kg (descendente)
+  const sortByKg = (formato: string) => {
+    return parseInt(formato.replace("kg", ""))
+  }
+
+  // Agrupar productos por marca y ordenar por kg
+  const groupedProducts = useMemo(() => {
+    const groups = products.reduce(
+      (acc, product) => {
+        if (!acc[product.marca]) {
+          acc[product.marca] = []
+        }
+        acc[product.marca].push(product)
+        return acc
+      },
+      {} as Record<string, Product[]>
+    )
+
+    // Ordenar productos dentro de cada marca por kg
+    Object.keys(groups).forEach((marca) => {
+      groups[marca].sort((a, b) => sortByKg(a.formato) - sortByKg(b.formato))
+    })
+
+    return groups
+  }, [products])
 
   if (!user || user.tipoUsuario !== "proveedor") {
     return <Redirect href="/home" />
   }
 
+  const renderBrandSection = ({ item: marca }: { item: string }) => (
+    <View className="mb-6">
+      <View className="flex-row items-center mb-3 px-1">
+        <Image
+          source={getImageForBrand(marca)}
+          className="w-10 h-10 mr-3"
+          resizeMode="contain"
+        />
+        <Text className="text-lg font-JakartaBold text-neutral-700">
+          {marca}
+        </Text>
+      </View>
+      {groupedProducts[marca].map((product) => (
+        <ProductCard
+          key={product.id}
+          item={product}
+          onDelete={() => product.id && deleteProduct(product.id)}
+          onEdit={() => setEditingProduct(product)}
+        />
+      ))}
+    </View>
+  )
+
   return (
     <SafeAreaView className="flex-1 bg-neutral-50">
       <View className="flex-1 px-5 pt-4">
-        <Text className="text-2xl font-JakartaBold text-neutral-800 mb-6">
-          Mis Productos
-        </Text>
+        <View className="flex-row items-center mb-6">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-8 h-8 items-center justify-center rounded-full bg-white shadow-sm mr-3"
+          >
+            <Ionicons name="chevron-back" size={24} color="#404040" />
+          </TouchableOpacity>
+          <Text className="text-xl font-JakartaBold text-neutral-800">
+            Mis Productos
+          </Text>
+        </View>
 
         {loading ? (
           <ActivityIndicator size="large" color="#77BEEA" />
         ) : (
           <FlatList
-            data={products}
-            keyExtractor={(item) => item.id || Math.random().toString()}
-            renderItem={({ item }) => (
-              <ProductCard
-                item={item}
-                onDelete={() => item.id && deleteProduct(item.id)}
-                onEdit={() => setEditingProduct(item)}
-              />
-            )}
+            data={Object.keys(groupedProducts)}
+            keyExtractor={(marca) => marca}
+            renderItem={renderBrandSection}
             ListEmptyComponent={() => (
-              <Text className="text-center text-neutral-500 mt-4">
-                No tienes productos registrados
-              </Text>
+              <View className="flex-1 justify-center items-center mt-8">
+                <Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+                <Text className="text-center text-neutral-500 mt-4 font-JakartaMedium">
+                  No tienes productos registrados
+                </Text>
+              </View>
             )}
             className="mb-4"
           />
