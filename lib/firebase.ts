@@ -36,7 +36,7 @@ export const getUserDataFromDB = async () => {
         firstName: userData.firstName || "",
         lastName: userData.lastName || "",
         phone: userData.phone || "",
-        photoURL: user.photoURL || "",
+        photoURL: userData.photoURL || "",
         tipoUsuario: userData.tipoUsuario || "usuario",
         // Campos adicionales para proveedores
         ...(userData.tipoUsuario === "proveedor" && {
@@ -74,7 +74,8 @@ export const fetchProvidersUsers = async () => {
 export const updateUserDataInDB = async (
   firstName?: string,
   lastName?: string,
-  phone?: string
+  phone?: string,
+  photoURL?: string
 ) => {
   const user = auth.currentUser
 
@@ -87,6 +88,7 @@ export const updateUserDataInDB = async (
       if (firstName !== undefined) updateData.firstName = firstName
       if (lastName !== undefined) updateData.lastName = lastName
       if (phone !== undefined) updateData.phone = phone
+      if (photoURL !== undefined) updateData.photoURL = photoURL
 
       await setDoc(userProfileRef, updateData, { merge: true })
 
@@ -94,6 +96,7 @@ export const updateUserDataInDB = async (
       if (firstName && lastName) {
         await updateProfile(user, {
           displayName: `${firstName} ${lastName}`,
+          ...(photoURL && { photoURL }),
         })
       }
     } catch (err: any) {
