@@ -19,13 +19,11 @@
     •
     <a href="#" style="color: #3b82f6; text-decoration: none; margin: 0 10px;">Reportar Bug</a>
   </div>
-
-  <img src="https://user-images.githubusercontent.com/24864482/173254656-c1dac0bd-9bbd-4dca-9423-90f40a5556dd.png" alt="Gasway Preview" style="border-radius: 12px; margin: 30px 0; max-width: 800px"/>
 </div>
 
 ## ⚡ Características Principales
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0;">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
   <div style="background: #22c55e; color: white; padding: 15px; border-radius: 8px; text-align: center;">
     🔐 Autenticación Segura
   </div>
@@ -33,7 +31,22 @@
     🗺️ Mapas en Tiempo Real
   </div>
   <div style="background: #f97316; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-    💳 Pagos Integrados
+    🚚 Seguimiento de Pedidos
+  </div>
+  <div style="background: #8b5cf6; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+    📊 Múltiples Roles
+  </div>
+  <div style="background: #ec4899; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+    🔄 Estado en Tiempo Real
+  </div>
+  <div style="background: #14b8a6; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+    📱 Interfaz Intuitiva
+  </div>
+  <div style="background: #f43f5e; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+    📍 Geolocalización
+  </div>
+  <div style="background: #fbbf24; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+    💰 Métodos de Pago
   </div>
 </div>
 
@@ -48,25 +61,21 @@
 
 ## 🛠️ Tech Stack
 
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
+<div style="display: flex; justify-content: space-around; align-items: center; margin: 20px 0;">
   <div style="text-align: center;">
-    <img src="https://reactnative.dev/img/header_logo.svg" width="60" style="margin-bottom: 10px"/>
-    <br/>
+    <img src="https://reactnative.dev/img/header_logo.svg" width="60" style="margin-right: 10px"/>
     <strong>React Native</strong>
   </div>
   <div style="text-align: center;">
-    <img src="https://www.vectorlogo.zone/logos/firebase/firebase-icon.svg" width="60" style="margin-bottom: 10px"/>
-    <br/>
+    <img src="https://www.vectorlogo.zone/logos/firebase/firebase-icon.svg" width="60" style="margin-right: 10px"/>
     <strong>Firebase</strong>
   </div>
   <div style="text-align: center;">
-    <img src="https://www.vectorlogo.zone/logos/google_maps/google_maps-icon.svg" width="60" style="margin-bottom: 10px"/>
-    <br/>
+    <img src="https://www.vectorlogo.zone/logos/google_maps/google_maps-icon.svg" width="60" style="margin-right: 10px"/>
     <strong>Google Maps</strong>
   </div>
   <div style="text-align: center;">
-    <img src="https://www.vectorlogo.zone/logos/tailwindcss/tailwindcss-icon.svg" width="60" style="margin-bottom: 10px"/>
-    <br/>
+    <img src="https://www.vectorlogo.zone/logos/tailwindcss/tailwindcss-icon.svg" width="60" style="margin-right: 10px"/>
     <strong>Tailwind</strong>
   </div>
 </div>
