@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   View,
   FlatList,
@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 import { router } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
+import * as Location from "expo-location"
 import { getAuth } from "firebase/auth"
 
 import Map from "@/components/Map"
@@ -26,12 +27,15 @@ const Home = () => {
     isProveedor,
     hasPermission,
     initializeUser,
+    saveUserLocation,
+    requestLocationPermission,
     id: userId,
   } = useUserStore()
   const {
     loading,
     pedidos,
     pedidoActual,
+    clearPedidoActual,
     pedidoModalVisible,
     setPedidoModalVisible,
     initializePedidosListener,
@@ -64,7 +68,21 @@ const Home = () => {
       const minDuration = 2000
 
       try {
-        const unsubscribe = initializePedidosListener(user.id)
+        // Actualizamos pedidos y ubicación si es proveedor
+        const [unsubscribePedidos] = await Promise.all([
+          initializePedidosListener(user.id),
+          isProveedor
+            ? Location.getCurrentPositionAsync({}).then((location) =>
+                saveUserLocation(
+                  location.coords.latitude,
+                  location.coords.longitude
+                )
+              )
+            : Promise.resolve(),
+        ])
+
+        console.log("(DEBUG - Home) Pedidos actualizados")
+        console.log("(DEBUG - Home) Ubicación actualizada")
 
         const elapsed = Date.now() - startTime
         if (elapsed < minDuration) {
@@ -73,12 +91,12 @@ const Home = () => {
           )
         }
 
-        return unsubscribe
+        return unsubscribePedidos
       } catch (error) {
-        console.error("Error al actualizar los pedidos:", error)
+        console.error("Error al actualizar datos:", error)
       }
     }
-  }, [user])
+  }, [user, isProveedor])
 
   const handleChatPress = () => {
     if (pedidoActual) {
@@ -101,8 +119,8 @@ const Home = () => {
       return pedidos.filter((p) => {
         return (
           p.clienteId === user?.id &&
-          p.estado !== "Llegado" &&
-          p.estado !== "Rechazado"
+          p.estado !== "Rechazado" &&
+          p.estado !== "Cancelado"
         )
       })
     }
@@ -110,8 +128,16 @@ const Home = () => {
     return []
   }, [pedidos, isProveedor, user?.id])
 
+  const handlePermissionRequest = async () => {
+    await requestLocationPermission()
+  }
+
   if (!hasPermission) {
-    return <LocationPermissionRequest />
+    return (
+      <LocationPermissionRequest
+        onRequestPermission={handlePermissionRequest}
+      />
+    )
   }
 
   console.log(
