@@ -10,9 +10,10 @@ export function formatTime(minutes: number): string {
   }
 }
 
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  const day = date.getDate()
+export function formatDate(date: Date | string): string {
+  const dateObj = date instanceof Date ? date : new Date(date)
+
+  const day = dateObj.getDate()
   const monthNames = [
     "Enero",
     "Febrero",
@@ -27,12 +28,16 @@ export function formatDate(dateString: string): string {
     "Noviembre",
     "Diciembre",
   ]
-  const month = monthNames[date.getMonth()]
-  const year = date.getFullYear()
-  const hours = date.getHours()
-  const minutes = date.getMinutes()
+  const month = monthNames[dateObj.getMonth()]
+  const year = dateObj.getFullYear()
+  const hours = dateObj.getHours()
+  const minutes = dateObj.getMinutes()
 
-  return `${day < 10 ? "0" + day : day} ${month} ${year} - ${hours}:${minutes}hrs`
+  const formattedDay = day < 10 ? `0${day}` : day
+  const formattedHours = hours < 10 ? `0${hours}` : hours
+  const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
+
+  return `${formattedDay} ${month} ${year} - ${formattedHours}:${formattedMinutes}hrs`
 }
 
 export function formatToChileanPesos(price: number): string {
@@ -45,13 +50,13 @@ export function formatToChileanPesos(price: number): string {
 export const getImageForBrand = (marca: string) => {
   switch (marca) {
     case "Abastible":
-      return require("@/assets/images/Abastible.png")
+      return require("@/assets/images/abastible_11.png")
     case "Gasco":
-      return require("@/assets/images/Gasco.png")
+      return require("@/assets/images/gasco_11.png")
     case "Lipigas":
-      return require("@/assets/images/Lipigas.png")
+      return require("@/assets/images/lipigas_11.png")
     default:
-      return require("@/assets/images/check.png") // Imagen por defecto
+      return require("@/assets/images/check.png")
   }
 }
 
