@@ -31,9 +31,19 @@ import onboarding1 from "@/assets/images/onboarding1.png"
 import onboarding2 from "@/assets/images/onboarding2.png"
 import onboarding3 from "@/assets/images/onboarding3.png"
 import signUpCar from "@/assets/images/signup-car.jpg"
-import abastible from "@/assets/images/Abastible.png"
-import gasco from "@/assets/images/Gasco.png"
-import lipigas from "@/assets/images/Lipigas.png"
+import abastible_5kg from "@/assets/images/abastible_5.png"
+import abastible_11kg from "@/assets/images/abastible_11.png"
+import abastible_15kg from "@/assets/images/abastible_15.png"
+import abastible_45kg from "@/assets/images/abastible_45.png"
+import gasco_5kg from "@/assets/images/gasco_5.png"
+import gasco_11kg from "@/assets/images/gasco_11.png"
+import gasco_15kg from "@/assets/images/gasco_15.png"
+import gasco_45kg from "@/assets/images/gasco_45.png"
+import lipigas_5kg from "@/assets/images/lipigas_5.png"
+import lipigas_11kg from "@/assets/images/lipigas_11.png"
+import lipigas_15kg from "@/assets/images/lipigas_15.png"
+import lipigas_45kg from "@/assets/images/lipigas_45.png"
+import { Product } from "@/types/type"
 
 export const images = {
   onboarding1,
@@ -44,9 +54,18 @@ export const images = {
   check,
   noResult,
   message,
-  gasco,
-  lipigas,
-  abastible,
+  abastible_5: abastible_5kg,
+  abastible_11: abastible_11kg,
+  abastible_15: abastible_15kg,
+  abastible_45: abastible_45kg,
+  gasco_5: gasco_5kg,
+  gasco_11: gasco_11kg,
+  gasco_15: gasco_15kg,
+  gasco_45: gasco_45kg,
+  lipigas_5: lipigas_5kg,
+  lipigas_11: lipigas_11kg,
+  lipigas_15: lipigas_15kg,
+  lipigas_45: lipigas_45kg,
 }
 
 export const icons = {
@@ -105,14 +124,14 @@ export const data = {
   onboarding,
 }
 
-export const marcaImages: { [key: string]: string } = {
-  gasco: images.gasco,
-  lipigas: images.lipigas,
-  abastible: images.abastible,
-}
-
-export const getProductImage = (marca: "Abastible" | "Gasco" | "Lipigas") => {
-  return marcaImages[marca] || images.check // Usa una imagen por defecto si no hay coincidencia
+export const getProductImage = (
+  marca: Product["marca"],
+  formato: Product["formato"]
+) => {
+  const formatoSinKg = formato.replace("kg", "")
+  const imageKey =
+    `${marca.toLowerCase()}_${formatoSinKg}` as keyof typeof images
+  return images[imageKey] || images.check
 }
 
 export const MENSAJES_RAPIDOS = [
@@ -120,4 +139,5 @@ export const MENSAJES_RAPIDOS = [
   "Llego en 5 minutos",
   "Gracias",
   "Lo siento, voy tarde",
+  "No puedo llegar",
 ] as const
