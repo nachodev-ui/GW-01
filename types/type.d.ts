@@ -13,7 +13,7 @@ interface ProductStore {
   error: string | null
   addProduct: (product: Product) => Promise<void>
   deleteProduct: (productId: string) => Promise<void>
-  fetchProducts: () => Promise<void>
+  fetchProducts: (providerId: string) => Promise<void>
   updateProduct: (productId: string, updates: Partial<Product>) => Promise<void>
 }
 declare interface Product {
@@ -186,6 +186,9 @@ declare interface UserStore {
   isProveedor: boolean
   pushToken?: string
   phoneError?: string
+  loading: boolean
+  error: string | null
+  uploadProfileImage: () => Promise<void>
 
   setPhoneError: (error: string) => void
   validateAndSetPhone: (phone: string) => void
@@ -210,7 +213,7 @@ declare interface UserStore {
 
   initializeUser: () => Promise<void>
   checkUserRole: () => Promise<void>
-  requestLocationPermission: () => Promise<void>
+  requestLocationPermission: () => Promise<boolean>
   saveUserLocation: (latitude: number, longitude: number) => Promise<void>
 
   // Individual setters
@@ -255,6 +258,12 @@ declare interface LocationState {
   clearSelectedProviderLocation: () => void
 }
 
+declare interface TransactionData {
+  token: string | null
+  amount: number
+  status: string
+}
+
 interface Pedido {
   id: string
   clienteId: string
@@ -272,20 +281,25 @@ interface Pedido {
   }
   producto: CartProduct[]
   precio: number
-  estado: "Aceptado" | "Pendiente" | "Rechazado" | "Llegado"
+  estado: "Aceptado" | "Pendiente" | "Rechazado" | "Llegado" | "Cancelado"
   timestamp: Date
+  transactionData?: TransactionData
 }
 declare interface PedidoState {
   pedidos: Pedido[]
   loading: boolean
   pedidoActual: Pedido | null
   pedidoModalVisible: boolean
+  hasRedirected: boolean
+  previousPedidoState: string | null
   setPedidoActual: (pedido: Pedido | null) => void
+  clearPedidoActual: () => void
   setPedidos: (pedidos: Pedido[]) => void
+  setHasRedirected: (value: boolean) => void
   setPedidoModalVisible: (visible: boolean) => void
   crearNuevoPedido: (
-    pedidoData: Omit<Pedido, "id" | "timestamp">
-  ) => Promise<void>
+    pedidoData: Omit<Pedido, "id" | "timestamp" | "precio">
+  ) => Promise<Pedido | undefined>
   fetchPedidosStore: () => Promise<void>
   fetchPedidosByUserType: () => Promise<void>
   initializePedidosListener: (userId: string) => () => void
@@ -301,4 +315,13 @@ declare interface DriverCardProps {
   item: MarkerData
   selected: number
   setSelected: () => void
+}
+
+declare interface AuthStore {
+  user: UserProfile | ProviderProfile | null
+  role: "usuario" | "proveedor" | null
+  isAuthenticated: boolean | undefined
+  setRole: (role: "usuario" | "proveedor" | null) => void
+  setUser: (user: UserProfile | ProviderProfile | null) => void
+  setIsAuthenticated: (isAuthenticated: boolean | undefined) => void
 }
