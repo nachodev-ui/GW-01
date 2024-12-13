@@ -39,6 +39,10 @@ const Cart = () => {
     (state) => state
   )
   const [isProcessing, setIsProcessing] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [isRetrying, setIsRetrying] = useState(false)
+  const MAX_RETRIES = 3
+  const TIMEOUT_DURATION = 20000 // 20 segundos
 
   useEffect(() => {
     fetchUserData()
@@ -65,9 +69,9 @@ const Cart = () => {
   const handleBuyTesting = async () => {
     console.log("1. Iniciando proceso de pago")
     setIsProcessing(true)
+    setRetryCount(0)
 
     try {
-      console.log("2. Preparando datos para Transbank")
       const tbkData: TransbankRequest = {
         buyOrder: Math.random().toString(10).slice(2),
         sessionId: "session" + Math.random().toString(10).slice(2),
@@ -75,17 +79,28 @@ const Cart = () => {
         returnUrl: "https://gw-pay-sc.onrender.com/payment-sucess",
       }
 
-      console.log("3. Enviando solicitud al backend")
-      const response = await makeRequestWithRetry(() =>
-        axios.post(
-          "https://gw-back.onrender.com/api/transbank/create",
-          tbkData,
-          { timeout: 15000 }
-        )
+      const response = await makeRequestWithRetry(
+        () =>
+          axios.post(
+            "https://gw-back.onrender.com/api/transbank/create",
+            tbkData,
+            {
+              timeout: TIMEOUT_DURATION,
+            }
+          ),
+        {
+          maxRetries: MAX_RETRIES,
+          onRetry: (attemptCount) => {
+            setRetryCount(attemptCount)
+            setIsRetrying(true)
+          },
+          retryDelay: (attemptCount) =>
+            Math.min(1000 * Math.pow(2, attemptCount), 10000),
+        }
       )
 
       if (!response.data?.url || !response.data?.token) {
-        throw new Error("Datos incompletos en la respuesta del backend.")
+        throw new Error("Datos incompletos en la respuesta del servidor.")
       }
 
       const { url, token } = response.data
@@ -110,7 +125,14 @@ const Cart = () => {
         const transactionDetails = await getTransactionDetails(token)
 
         if (transactionDetails?.status === "AUTHORIZED") {
-          await handleCrearPedido()
+          const nuevoPedido = await handleCrearPedido()
+
+          if (nuevoPedido) {
+            await useTransactionStore
+              .getState()
+              .saveTransbankPayment(nuevoPedido.id)
+          }
+
           clearCart()
         } else {
           throw new Error("La transacción no fue autorizada")
@@ -120,13 +142,31 @@ const Cart = () => {
         throw browserError
       }
     } catch (err: any) {
-      console.error("Error general:", err)
-      Alert.alert(
-        "Error",
-        "Ocurrió un problema al realizar la compra. Por favor, intenta de nuevo."
-      )
+      if (axios.isAxiosError(err) && err.code === "ECONNABORTED") {
+        Alert.alert(
+          "Tiempo de espera excedido",
+          "La conexión está lenta. ¿Deseas intentar nuevamente?",
+          [
+            {
+              text: "Cancelar",
+              style: "cancel",
+              onPress: () => setIsProcessing(false),
+            },
+            {
+              text: "Reintentar",
+              onPress: () => handleBuyTesting(),
+            },
+          ]
+        )
+      } else {
+        Alert.alert(
+          "Error",
+          "Ocurrió un problema al realizar la compra. Por favor, intenta de nuevo."
+        )
+      }
     } finally {
       setIsProcessing(false)
+      setIsRetrying(false)
     }
   }
 
@@ -183,7 +223,6 @@ const Cart = () => {
   const handleCrearPedido = async () => {
     const { crearNuevoPedido } = usePedidoStore.getState()
     const { items } = useCartStore.getState()
-    const { transaction, token_ws } = useTransactionStore.getState()
 
     if (items.length === 0) {
       Alert.alert("El carrito está vacío. No se puede crear un pedido.")
@@ -194,6 +233,7 @@ const Cart = () => {
       clienteId: user?.id || "",
       nombreCliente: user?.firstName + " " + user?.lastName || "Cliente",
       conductorId: selectedProviderLocation?.id || "",
+      nombreConductor: selectedProviderLocation?.nombreConductor || "",
       ubicacionProveedor: {
         address: selectedProviderLocation?.address || "Calle Falsa 123",
         latitude: selectedProviderLocation?.latitude || 0,
@@ -206,11 +246,6 @@ const Cart = () => {
       },
       producto: items,
       estado: "Pendiente",
-      transactionData: {
-        token: token_ws,
-        amount: transaction.amount,
-        status: transaction.status,
-      },
     }
 
     try {
@@ -231,20 +266,39 @@ const Cart = () => {
         "(DEBUG - Cart) Pedido actualizado en el estado:",
         usePedidoStore.getState().pedidoActual
       )
+
+      return nuevoPedido
     } catch (error) {
       console.error("Error al crear el pedido:", error)
+      Alert.alert("Error", "No se pudo crear el pedido")
+      return null
     }
   }
 
-  const makeRequestWithRetry = async (fn: () => Promise<any>, retries = 3) => {
-    for (let i = 0; i < retries; i++) {
+  const makeRequestWithRetry = async (
+    fn: () => Promise<any>,
+    options: {
+      maxRetries: number
+      onRetry: (attemptCount: number) => void
+      retryDelay: (attemptCount: number) => number
+    }
+  ) => {
+    let lastError
+
+    for (let attempt = 0; attempt < options.maxRetries; attempt++) {
       try {
         return await fn()
       } catch (err) {
-        if (i === retries - 1) throw err
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)))
+        lastError = err
+        if (attempt < options.maxRetries - 1) {
+          options.onRetry(attempt + 1)
+          await new Promise((resolve) =>
+            setTimeout(resolve, options.retryDelay(attempt))
+          )
+        }
       }
     }
+    throw lastError
   }
 
   return (
@@ -348,10 +402,12 @@ const Cart = () => {
                           {item.quantity}
                         </Text>
                         <TouchableOpacity
-                          onPress={() =>
-                            item.product.id &&
-                            updateQuantity(item.product.id, item.quantity + 1)
-                          }
+                          onPress={() => {
+                            const newQuantity = item.quantity + 1
+                            if (newQuantity <= 5 && item.product.id) {
+                              updateQuantity(item.product.id, newQuantity)
+                            }
+                          }}
                           className="p-2"
                         >
                           <Ionicons name="add" size={18} color="#77BEEA" />
@@ -404,10 +460,14 @@ const Cart = () => {
               <ActivityIndicator size="large" color="#77BEEA" />
             </View>
             <Text className="text-xl font-JakartaBold text-neutral-800 text-center mb-2">
-              Procesando tu pago
+              {isRetrying
+                ? `Reintentando (${retryCount}/${MAX_RETRIES})`
+                : "Procesando tu pago"}
             </Text>
             <Text className="text-neutral-600 font-Jakarta text-center">
-              Por favor, espera mientras procesamos tu transacción...
+              {isRetrying
+                ? "La conexión está lenta. Reintentando automáticamente..."
+                : "Por favor, espera mientras procesamos tu transacción..."}
             </Text>
           </View>
         </View>

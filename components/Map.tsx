@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react"
-import { Text, View, Platform } from "react-native"
+import { Text, View, Platform, Alert } from "react-native"
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
 import ClusteredMapView from "react-native-map-clustering"
 import {
@@ -16,11 +16,11 @@ import {
   collection,
   getDocs,
   getDoc,
+  onSnapshot,
 } from "firebase/firestore"
 import { router } from "expo-router"
 
 import { db } from "@/firebaseConfig"
-import { getCurrentUser } from "@/lib/firebase"
 import { useLocationStore, useUserStore } from "@/store"
 import { UserLocationMarker } from "./map/UserLocationMarker"
 import { DirectionsRoute } from "./map/DirectionsRoute"
@@ -32,8 +32,8 @@ import {
 import { isValidLocation, getMapRegion } from "@/lib/map/utils"
 import { LocationPermissionRequest } from "./LocationPermissionRequest"
 import * as Location from "expo-location"
+import { ProviderProfile, UserProfile } from "@/types/type"
 
-// Reducer para manejar estados locales
 const mapReducer = (
   state: MapReducerState,
   action: MapReducerAction
@@ -52,7 +52,7 @@ const mapReducer = (
 
 const Map = () => {
   const mapRef = useRef<MapView | null>(null)
-  const user = getCurrentUser()
+  const { user } = useUserStore()
   const {
     userLocation,
     providersLocations,
@@ -70,15 +70,19 @@ const Map = () => {
 
   const [isMapReady, setIsMapReady] = useState(false)
 
-  const { hasPermission, requestLocationPermission } = useUserStore()
+  const { hasPermission, requestLocationPermission, isProviderAvailable } =
+    useUserStore()
 
-  // Función para obtener la ubicación del usuario
+  const [providerStates, setProviderStates] = useState<Record<string, string>>(
+    {}
+  )
+
   const fetchUserLocation = useCallback(async () => {
-    if (!user?.uid) return
+    if (!user?.id) return
 
     dispatch({ type: "SET_LOADING", payload: true })
     try {
-      const userLocationDoc = await getDoc(doc(db, "userLocations", user.uid))
+      const userLocationDoc = await getDoc(doc(db, "userLocations", user.id))
 
       if (!userLocationDoc.exists()) {
         const { status } = await Location.getForegroundPermissionsAsync()
@@ -113,14 +117,13 @@ const Map = () => {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false })
     }
-  }, [user?.uid, setUserLocation])
+  }, [user?.id, setUserLocation])
 
-  // Función para obtener el rol del usuario
   const fetchUserRole = useCallback(async () => {
-    if (!user?.uid) return
+    if (!user?.id) return
 
     try {
-      const userProfileDoc = await getDoc(doc(db, "userProfiles", user.uid))
+      const userProfileDoc = await getDoc(doc(db, "userProfiles", user.id))
       if (userProfileDoc.exists()) {
         dispatch({
           type: "SET_USER_ROLE",
@@ -133,9 +136,8 @@ const Map = () => {
         payload: error instanceof Error ? error.message : "Error desconocido",
       })
     }
-  }, [user?.uid])
+  }, [user?.id])
 
-  // Función para obtener ubicaciones de proveedores
   const fetchProviderLocations = useCallback(async () => {
     try {
       console.log("[DEBUG] Iniciando búsqueda de proveedores...")
@@ -194,18 +196,33 @@ const Map = () => {
     }
   }, [setProvidersLocations])
 
-  // Manejador de click en marcador de proveedor
   const handleMarkerPress = useCallback(
-    (location: NonNullable<(typeof providersLocations)[0]>) => {
+    async (location: NonNullable<(typeof providersLocations)[0]>) => {
       if (!userLocation) {
         console.warn("No hay ubicación de usuario disponible")
         return
       }
 
       try {
-        // Primero actualizamos el estado
-        setSelectedProviderLocation(location)
+        const providerState = providerStates[location.id]
 
+        if (providerState === "no_disponible") {
+          Alert.alert(
+            "Proveedor no disponible",
+            "Este proveedor no se encuentra disponible en este momento.",
+            [{ text: "OK" }]
+          )
+          return
+        }
+
+        const providerDoc = await getDoc(doc(db, "userProfiles", location.id))
+        const providerData = providerDoc.data() as ProviderProfile
+
+        setSelectedProviderLocation({
+          ...location,
+          nombreConductor: providerData.firstName + " " + providerData.lastName,
+          estado: providerData.estado,
+        })
         router.push({
           pathname: "/(root)/find-ride",
           params: {
@@ -220,10 +237,16 @@ const Map = () => {
         })
       }
     },
-    [setSelectedProviderLocation, userLocation, router]
+    [setSelectedProviderLocation, userLocation, router, providerStates]
   )
 
-  // Función para calcular los límites del mapa
+  useEffect(() => {
+    console.log(
+      "(DEBUG - Map) Proveedor seleccionado actualizado:",
+      selectedProviderLocation
+    )
+  }, [selectedProviderLocation])
+
   const fitMapToMarkers = useCallback(() => {
     if (!mapRef.current || !userLocation || !selectedProviderLocation) return
 
@@ -243,11 +266,11 @@ const Map = () => {
   }, [userLocation, selectedProviderLocation])
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.id) {
       fetchUserLocation()
       fetchUserRole()
     }
-  }, [user?.uid, fetchUserLocation, fetchUserRole])
+  }, [user?.id, fetchUserLocation, fetchUserRole])
 
   useEffect(() => {
     if (!state.loading && state.currentUserRole === "usuario") {
@@ -266,7 +289,6 @@ const Map = () => {
     }
   }, [providersLocations])
 
-  // Efecto para ajustar el zoom cuando cambian las ubicaciones
   useEffect(() => {
     if (isMapReady && userLocation && selectedProviderLocation) {
       const timer = setTimeout(fitMapToMarkers, 1000) // Pequeño delay para asegurar que el mapa está listo
@@ -274,27 +296,76 @@ const Map = () => {
     }
   }, [isMapReady, userLocation, selectedProviderLocation, fitMapToMarkers])
 
-  // Renderizado condicional de marcadores de proveedores
-  const renderProviderMarkers = useMemo(() => {
+  useEffect(() => {
+    if (!providersLocations.length) return
+
+    const unsubscribes = providersLocations.map((location) => {
+      return onSnapshot(doc(db, "userProfiles", location.id), (doc) => {
+        const providerData = doc.data() as ProviderProfile
+        setProviderStates((prev) => ({
+          ...prev,
+          [location.id]: providerData.estado,
+        }))
+      })
+    })
+
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe())
+    }
+  }, [providersLocations])
+
+  const renderProviderMarkers = useMemo(async () => {
     if (state.currentUserRole !== "usuario" || !providersLocations.length) {
       return null
     }
 
-    return providersLocations.map((location) => (
-      <Marker
-        key={location.id}
-        coordinate={{
-          latitude: location.latitude,
-          longitude: location.longitude,
-        }}
-        onPress={() => handleMarkerPress(location)}
-        pinColor="red"
-        title={`Proveedor ${location.id}`}
-        description={location.address || ""}
-        zIndex={2}
-      />
-    ))
+    const markers = await Promise.all(
+      providersLocations.map(async (location) => {
+        const providerDoc = await getDoc(doc(db, "userProfiles", location.id))
+        const providerData = providerDoc.data() as ProviderProfile
+
+        if (providerData?.estado === "disponible") {
+          return (
+            <Marker
+              key={location.id}
+              coordinate={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+              }}
+              onPress={() => handleMarkerPress(location)}
+              pinColor="red"
+              title={`Proveedor ${location.id}`}
+              description={location.address || ""}
+              zIndex={2}
+            />
+          )
+        }
+        return null
+      })
+    )
+
+    return markers.filter(Boolean)
   }, [providersLocations, state.currentUserRole, handleMarkerPress])
+
+  const shouldShowUserMarker = (user: UserProfile | ProviderProfile | null) => {
+    if (!user) return false
+
+    if (user.tipoUsuario === "usuario") return true
+
+    return user.tipoUsuario === "proveedor" && user.estado === "disponible"
+  }
+
+  const [markers, setMarkers] = useState<React.ReactNode[]>([])
+
+  useEffect(() => {
+    const loadMarkers = async () => {
+      const renderedMarkers = await renderProviderMarkers
+      if (renderedMarkers) {
+        setMarkers(renderedMarkers)
+      }
+    }
+    loadMarkers()
+  }, [renderProviderMarkers])
 
   // Si no hay permisos, mostramos el componente de solicitud
   if (!hasPermission) {
@@ -311,7 +382,7 @@ const Map = () => {
     )
   }
 
-  if (!user?.uid) {
+  if (!user?.id) {
     return (
       <View className="flex justify-between items-center w-full">
         <Text>No hay usuario autenticado</Text>
@@ -356,8 +427,10 @@ const Map = () => {
     >
       {isMapReady && (
         <>
-          {renderProviderMarkers}
-          <UserLocationMarker location={userLocation} />
+          {markers}
+          {shouldShowUserMarker(user) && (
+            <UserLocationMarker location={userLocation} />
+          )}
           {selectedProviderLocation && userLocation && (
             <DirectionsRoute
               origin={userLocation}

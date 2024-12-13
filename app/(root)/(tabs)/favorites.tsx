@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { View, Text, FlatList, TouchableOpacity } from "react-native"
+import { View, Text, FlatList, TouchableOpacity, Image } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { collection, query, where, getDocs } from "firebase/firestore"
@@ -8,7 +8,7 @@ import { useUserStore } from "@/store"
 import { formatToChileanPesos } from "@/lib/utils"
 import { Pedido } from "@/types/type"
 import { CartProduct } from "@/services/cart/cart.store"
-import { Redirect } from "expo-router"
+import { Redirect, router } from "expo-router"
 
 interface ProductWithCount extends CartProduct {
   count: number
@@ -116,7 +116,7 @@ const Favorites = () => {
           >
             <Ionicons
               name="repeat-outline"
-              size={14}
+              size={20}
               color={index === 0 ? "white" : "#77BEEA"}
             />
             <Text
@@ -127,14 +127,6 @@ const Favorites = () => {
               {item.count}
             </Text>
           </View>
-          <TouchableOpacity
-            className="bg-[#77BEEA] p-2 rounded-full"
-            onPress={() => {
-              /* Lógica para añadir al carrito */
-            }}
-          >
-            <Ionicons name="cart-outline" size={24} color="white" />
-          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -154,6 +146,29 @@ const Favorites = () => {
           data={recentProducts}
           keyExtractor={(item, index) => index.toString()}
           renderItem={renderItem}
+          ListEmptyComponent={
+            <View className="flex-1 items-center justify-center mt-20">
+              <Image
+                source={{
+                  uri: "https://cdni.iconscout.com/illustration/premium/thumb/empty-cart-7359557-6024626.png",
+                }}
+                style={{ width: 200, height: 200, marginBottom: 20 }}
+                resizeMode="contain"
+              />
+              <Text className="text-gray-500 font-JakartaMedium mb-4 text-center px-8">
+                Aún no tienes productos favoritos. ¡Realiza tu primera compra y
+                descubre productos increíbles!
+              </Text>
+              <TouchableOpacity
+                className="bg-[#77BEEA] px-6 py-3 rounded-full shadow-lg"
+                onPress={() => router.push("/")}
+              >
+                <Text className="text-white font-JakartaBold">
+                  Explorar Proveedores
+                </Text>
+              </TouchableOpacity>
+            </View>
+          }
         />
       </View>
     </SafeAreaView>

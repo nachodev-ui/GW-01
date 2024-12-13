@@ -18,11 +18,10 @@ import { usePedidoStore, useUserStore } from "@/store"
 import { CartProduct } from "@/services/cart/cart.store"
 import { formatToChileanPesos, getImageForBrand } from "@/lib/utils"
 import { icons } from "@/constants"
-import { Pedido } from "@/types/type"
 
 const ConfirmRide = () => {
   const { user } = useUserStore()
-  const { pedidoActual, setPedidoActual } = usePedidoStore()
+  const { pedidoActual } = usePedidoStore()
 
   const openInGoogleMaps = () => {
     if (
@@ -63,9 +62,7 @@ const ConfirmRide = () => {
                 "Has marcado que has llegado a destino."
               )
 
-              setTimeout(() => {
-                router.replace("/")
-              }, 2000)
+              router.replace("/")
             } catch (error) {
               console.error("(DEBUG - ConfirmRide) Error:", error)
             }
@@ -84,16 +81,6 @@ const ConfirmRide = () => {
         remitenteId: user?.id,
       },
     })
-  }
-
-  const rechazarTest = () => {
-    if (!pedidoActual) return
-
-    setPedidoActual({ ...pedidoActual, estado: "Rechazado" } as Pedido)
-
-    console.log("(DEBUG - ConfirmRide) Pedido actualizado:", pedidoActual)
-
-    router.push("/home")
   }
 
   return (
@@ -283,16 +270,6 @@ const ConfirmRide = () => {
                 />
                 <Text className="font-JakartaBold text-white">
                   Confirmar llegada
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={rechazarTest}
-                className="bg-red-500 p-4 rounded-xl flex-row items-center justify-center space-x-2"
-              >
-                <Ionicons name="close-circle-outline" size={24} color="white" />
-                <Text className="font-JakartaBold text-white">
-                  Cancelar Entrega
                 </Text>
               </TouchableOpacity>
             </View>

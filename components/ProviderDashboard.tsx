@@ -10,9 +10,11 @@ import { usePedidoStore, useUserStore } from "@/store"
 import { ProviderProfile } from "@/types/type"
 import { useEffect, useRef } from "react"
 import { router } from "expo-router"
+import { doc, updateDoc } from "firebase/firestore"
+import { db } from "@/firebaseConfig"
 
 export const ProviderDashboard = () => {
-  const { user } = useUserStore()
+  const { user, updateUser } = useUserStore()
   const { pedidos, loading, initializePedidosListener, setPedidoActual } =
     usePedidoStore()
   const fadeAnim = useRef(new Animated.Value(0.4)).current
@@ -81,10 +83,29 @@ export const ProviderDashboard = () => {
     }
   }
 
-  if (loading || pedidos.length === 0) {
+  const toggleProviderStatus = async () => {
+    if (!user) return
+
+    const newStatus =
+      user.estado === "disponible" ? "no_disponible" : "disponible"
+
+    try {
+      await updateDoc(doc(db, "userProfiles", user.id), {
+        estado: newStatus,
+      })
+
+      updateUser({ estado: newStatus })
+    } catch (error) {
+      console.error("Error al actualizar el estado del proveedor:", error)
+    }
+  }
+
+  if (pedidos.length === 0) {
     return (
       <View className="mt-4 items-center justify-center">
-        <ActivityIndicator size="large" color="#77BEEA" />
+        <Text className="text-xl font-JakartaBold">
+          No tienes pedidos activos
+        </Text>
       </View>
     )
   }
@@ -94,15 +115,16 @@ export const ProviderDashboard = () => {
       <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
         <View className="flex-row justify-between items-center mb-2">
           <Text className="text-lg font-JakartaBold">Estado Actual</Text>
-          <View
-            className={`px-3 py-1 rounded-full ${user?.estado === "disponible" ? "bg-green-100" : "bg-red-100"}`}
+          <TouchableOpacity
+            onPress={toggleProviderStatus}
+            className={`px-3 py-1 rounded-full ${user?.estado === "disponible" ? "bg-green-100" : "bg-red-200"}`}
           >
             <Text
               className={`font-JakartaMedium ${user?.estado === "disponible" ? "text-green-600" : "text-red-600"}`}
             >
               {user?.estado === "disponible" ? "Disponible" : "No Disponible"}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import {
   View,
   FlatList,
@@ -19,9 +19,12 @@ import { LocationPermissionRequest } from "@/components/LocationPermissionReques
 import { Header } from "@/components/Header"
 import { ProviderDashboard } from "@/components/ProviderDashboard"
 
-import { useUserStore, usePedidoStore } from "@/store"
+import { useUserStore, usePedidoStore, useLocationStore } from "@/store"
+import { loadCartFromStorage, useCartStore } from "@/services/cart/cart.store"
 
 const Home = () => {
+  const { items } = useCartStore()
+  const { selectedProviderLocation } = useLocationStore()
   const {
     user,
     isProveedor,
@@ -35,7 +38,6 @@ const Home = () => {
     loading,
     pedidos,
     pedidoActual,
-    clearPedidoActual,
     pedidoModalVisible,
     setPedidoModalVisible,
     initializePedidosListener,
@@ -61,6 +63,19 @@ const Home = () => {
       }
     }
   }, [user])
+
+  useEffect(() => {
+    if (pedidoActual?.estado === "Llegado" && !isProveedor) {
+      usePedidoStore.getState().setPedidoActual(pedidoActual)
+
+      setTimeout(() => {
+        router.push({
+          pathname: "/order-details",
+          params: { pedidoId: pedidoActual.id },
+        })
+      }, 100)
+    }
+  }, [pedidoActual?.estado, isProveedor])
 
   const onRefresh = useCallback(async () => {
     if (user) {
@@ -132,6 +147,25 @@ const Home = () => {
     await requestLocationPermission()
   }
 
+  const loadCart = async () => {
+    const itemsFromStorage = await loadCartFromStorage()
+    console.log("items AsyncStorage", itemsFromStorage)
+    useCartStore.setState({ items: itemsFromStorage })
+  }
+
+  useEffect(() => {
+    loadCart()
+  }, [])
+
+  const hasActiveSelection = useMemo(() => {
+    console.log("estado proveedor", selectedProviderLocation?.estado)
+    return (
+      items.length > 0 &&
+      selectedProviderLocation !== null &&
+      selectedProviderLocation.estado !== "no_disponible"
+    )
+  }, [items, selectedProviderLocation])
+
   if (!hasPermission) {
     return (
       <LocationPermissionRequest
@@ -178,6 +212,32 @@ const Home = () => {
               <Text className="text-xl font-JakartaBold mb-3">
                 Tu ubicación actual
               </Text>
+
+              {hasActiveSelection && (
+                <View className="bg-blue-50 p-4 rounded-lg mb-3">
+                  <View className="flex-row items-center mb-2">
+                    <Ionicons name="cart-outline" size={20} color="#1D4ED8" />
+                    <Text className="font-JakartaMedium text-blue-700 ml-2">
+                      Carrito activo
+                    </Text>
+                  </View>
+
+                  <Text className="text-blue-600 text-sm mb-3">
+                    {items.length} producto(s) del proveedor en{" "}
+                    {selectedProviderLocation?.address}
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={() => router.push("/(root)/cart")}
+                    className="bg-blue-500 py-2.5 rounded-lg w-full"
+                  >
+                    <Text className="text-white font-JakartaMedium text-center">
+                      Ver carrito
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <View className="h-[250px] w-full rounded-lg overflow-hidden">
                 <Map />
               </View>

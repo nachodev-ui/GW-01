@@ -3,7 +3,7 @@ import OrderReceipt from "@/components/OrderReceipt"
 
 const Finished = () => {
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
+    <SafeAreaView className="flex-1 bg-neutral-50">
       <OrderReceipt />
     </SafeAreaView>
   )

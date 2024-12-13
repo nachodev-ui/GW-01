@@ -1,11 +1,18 @@
 import React, { useEffect, useState } from "react"
-import { View, Text, SafeAreaView } from "react-native"
-import { useLocalSearchParams } from "expo-router"
+import {
+  View,
+  Text,
+  SafeAreaView,
+  TouchableOpacity,
+  Platform,
+} from "react-native"
+import { useLocalSearchParams, router } from "expo-router"
 import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "@/firebaseConfig"
 import { Pedido } from "@/types/type"
 import { Ionicons } from "@expo/vector-icons"
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps"
+import { DirectionsRoute } from "@/components/map/DirectionsRoute"
 
 const TrackingScreen = () => {
   const params = useLocalSearchParams()
@@ -30,7 +37,7 @@ const TrackingScreen = () => {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 justify-center items-center bg-neutral-50">
         <Text className="text-lg font-JakartaMedium">Cargando...</Text>
       </View>
     )
@@ -38,46 +45,73 @@ const TrackingScreen = () => {
 
   if (!pedido) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 justify-center items-center bg-neutral-50">
         <Text className="text-lg font-JakartaMedium">Pedido no encontrado</Text>
       </View>
     )
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-neutral-50">
       {/* Header */}
-      <View className="p-4 border-b border-gray-200">
-        <Text className="text-xl font-JakartaBold">Seguimiento de Pedido</Text>
-        <Text className="text-sm font-JakartaMedium text-gray-500">
-          Orden #{pedido.id.slice(0, 8)}
-        </Text>
+      <View className="px-4 py-6 bg-white border-b border-neutral-100">
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <View className="flex-1 ml-3">
+            <Text className="text-xl font-JakartaBold text-neutral-800">
+              Seguimiento de Pedido
+            </Text>
+            <Text className="text-sm font-JakartaMedium text-neutral-500">
+              Orden #{pedido.id.slice(0, 8)}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Mapa */}
-      <View className="h-1/2">
+      <View className="flex-1 relative">
         <MapView
           provider={PROVIDER_DEFAULT}
-          mapType="mutedStandard"
+          mapType={Platform.OS === "android" ? "standard" : "mutedStandard"}
           className="w-full h-full"
           initialRegion={{
-            latitude: pedido.ubicacionCliente.latitude || 0,
-            longitude: pedido.ubicacionCliente.longitude || 0,
-            latitudeDelta: 0.005,
-            longitudeDelta: 0.005,
+            latitude: Number(pedido.ubicacionCliente.latitude) || 0,
+            longitude: Number(pedido.ubicacionCliente.longitude) || 0,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
           }}
         >
+          {/* Ruta entre proveedor y cliente */}
+          <DirectionsRoute
+            origin={{
+              latitude: Number(pedido.ubicacionProveedor.latitude) || 0,
+              longitude: Number(pedido.ubicacionProveedor.longitude) || 0,
+              address: pedido.ubicacionProveedor.address || "",
+            }}
+            destination={{
+              latitude: Number(pedido.ubicacionCliente.latitude) || 0,
+              longitude: Number(pedido.ubicacionCliente.longitude) || 0,
+              address: pedido.ubicacionCliente.address || "",
+              id: params.pedidoId as string,
+            }}
+          />
+
           {/* Marcador del cliente */}
           <Marker
             coordinate={{
-              latitude: pedido.ubicacionCliente.latitude || 0,
-              longitude: pedido.ubicacionCliente.longitude || 0,
+              latitude: Number(pedido.ubicacionCliente.latitude) || 0,
+              longitude: Number(pedido.ubicacionCliente.longitude) || 0,
             }}
             title="Tu ubicación"
           >
-            <Ionicons name="location" size={30} color="#2563eb" />
+            <View className="bg-blue-500/10 p-2 rounded-full">
+              <Ionicons name="location" size={30} color="#2563eb" />
+            </View>
           </Marker>
 
+          {/* Marcador del proveedor */}
           <Marker
             coordinate={{
               latitude: pedido.ubicacionProveedor.latitude,
@@ -85,57 +119,115 @@ const TrackingScreen = () => {
             }}
             title="Proveedor"
           >
-            <Ionicons name="car" size={30} color="#dc2626" />
+            <View className="bg-red-500/10 p-2 rounded-full">
+              <Ionicons name="car" size={30} color="#dc2626" />
+            </View>
           </Marker>
         </MapView>
       </View>
 
-      <View className="p-4">
-        <View className="bg-blue-50 p-4 rounded-lg">
-          <Text className="text-lg font-JakartaBold text-blue-800 mb-2">
-            Estado: {pedido.estado}
-          </Text>
-          <Text className="font-JakartaMedium text-blue-600">
-            Dirección de entrega:
-          </Text>
-          <Text className="font-Jakarta text-blue-600">
-            {pedido.ubicacionCliente.address}
-          </Text>
-        </View>
-
-        <View className="mt-4">
-          <View className="flex-row items-center mb-4">
-            <View
-              className={`w-4 h-4 rounded-full ${
-                pedido.estado !== "Pendiente" ? "bg-green-500" : "bg-gray-300"
-              }`}
-            />
-            <View className="ml-3">
-              <Text className="font-JakartaBold">Pedido Confirmado</Text>
+      {/* Panel de información */}
+      <View className="bg-white rounded-t-3xl shadow-lg">
+        <View className="p-6">
+          {/* Estado actual */}
+          <View className="bg-blue-50 p-4 rounded-2xl mb-6">
+            <Text className="text-lg font-JakartaBold text-blue-800 mb-2">
+              Estado: {pedido.estado}
+            </Text>
+            <View className="flex-row items-center space-x-2">
+              <Ionicons name="location-outline" size={20} color="#1D4ED8" />
+              <Text className="flex-1 font-JakartaMedium text-blue-700 text-sm">
+                {pedido.ubicacionCliente.address}
+              </Text>
             </View>
           </View>
 
-          <View className="flex-row items-center mb-4">
-            <View
-              className={`w-4 h-4 rounded-full ${
-                pedido.estado === "Aceptado" || pedido.estado === "Llegado"
-                  ? "bg-green-500"
-                  : "bg-gray-300"
-              }`}
-            />
-            <View className="ml-3">
-              <Text className="font-JakartaBold">En Camino</Text>
+          {/* Timeline de estados */}
+          <View className="space-y-6">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-full bg-green-500 items-center justify-center">
+                <Ionicons name="checkmark" size={20} color="white" />
+              </View>
+              <View className="ml-4 flex-1">
+                <Text className="font-JakartaBold text-neutral-800">
+                  Pedido Confirmado
+                </Text>
+                <Text className="font-Jakarta text-neutral-500 text-sm">
+                  Tu pedido ha sido confirmado
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <View className="flex-row items-center">
-            <View
-              className={`w-4 h-4 rounded-full ${
-                pedido.estado === "Llegado" ? "bg-green-500" : "bg-gray-300"
-              }`}
-            />
-            <View className="ml-3">
-              <Text className="font-JakartaBold">Entregado</Text>
+            <View className="flex-row items-center">
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center ${
+                  pedido.estado === "Aceptado" || pedido.estado === "Llegado"
+                    ? "bg-green-500"
+                    : "bg-neutral-200"
+                }`}
+              >
+                {pedido.estado === "Aceptado" || pedido.estado === "Llegado" ? (
+                  <Ionicons name="checkmark" size={20} color="white" />
+                ) : (
+                  <View className="w-3 h-3 bg-neutral-400 rounded-full" />
+                )}
+              </View>
+              <View className="ml-4 flex-1">
+                <Text
+                  className={`font-JakartaBold ${
+                    pedido.estado === "Aceptado" || pedido.estado === "Llegado"
+                      ? "text-neutral-800"
+                      : "text-neutral-400"
+                  }`}
+                >
+                  En Camino
+                </Text>
+                <Text
+                  className={`font-Jakarta text-sm ${
+                    pedido.estado === "Aceptado" || pedido.estado === "Llegado"
+                      ? "text-neutral-500"
+                      : "text-neutral-400"
+                  }`}
+                >
+                  Tu pedido está en camino
+                </Text>
+              </View>
+            </View>
+
+            <View className="flex-row items-center">
+              <View
+                className={`w-8 h-8 rounded-full items-center justify-center ${
+                  pedido.estado === "Llegado"
+                    ? "bg-green-500"
+                    : "bg-neutral-200"
+                }`}
+              >
+                {pedido.estado === "Llegado" ? (
+                  <Ionicons name="checkmark" size={20} color="white" />
+                ) : (
+                  <View className="w-3 h-3 bg-neutral-400 rounded-full" />
+                )}
+              </View>
+              <View className="ml-4 flex-1">
+                <Text
+                  className={`font-JakartaBold ${
+                    pedido.estado === "Llegado"
+                      ? "text-neutral-800"
+                      : "text-neutral-400"
+                  }`}
+                >
+                  Entregado
+                </Text>
+                <Text
+                  className={`font-Jakarta text-sm ${
+                    pedido.estado === "Llegado"
+                      ? "text-neutral-500"
+                      : "text-neutral-400"
+                  }`}
+                >
+                  Pedido entregado con éxito
+                </Text>
+              </View>
             </View>
           </View>
         </View>

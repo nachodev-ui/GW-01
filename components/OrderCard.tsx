@@ -63,7 +63,7 @@ const OrderCard = ({ pedido }: { pedido: Pedido }) => {
             <Text className="text-md font-JakartaBold">
               {isProveedor
                 ? pedido?.nombreCliente
-                : pedido?.conductorId || "No disponible"}
+                : pedido?.nombreConductor || "No disponible"}
             </Text>
           </View>
 

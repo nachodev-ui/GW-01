@@ -11,11 +11,12 @@ import {
   Platform,
   TouchableOpacity,
 } from "react-native"
+import { reloadAsync } from "expo-updates"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Ionicons } from "@expo/vector-icons"
-import { useRouter } from "expo-router"
+import { ProviderSidebar } from "@/components/ProviderSidebar"
+import { useSharedValue, withSpring } from "react-native-reanimated"
 
 import InputField from "@/components/InputField"
 import ProviderForm from "@/components/ProviderForm"
@@ -44,8 +45,8 @@ const Profile = () => {
   const [isProviderFormVisible, setIsProviderFormVisible] =
     useState<boolean>(false)
   const [refreshing, setRefreshing] = useState<boolean>(false)
-
-  const router = useRouter()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuAnimation = useSharedValue(0)
 
   useEffect(() => {
     fetchUserData()
@@ -74,6 +75,10 @@ const Profile = () => {
       "Cambio de tipo de usuario",
       "Has sido registrado como proveedor y tus productos han sido añadidos."
     )
+
+    setTimeout(() => {
+      reloadAsync()
+    }, 1000)
   }
 
   const handleSaveProfile = async () => {
@@ -98,17 +103,42 @@ const Profile = () => {
     )
   }
 
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen)
+    menuAnimation.value = withSpring(isMenuOpen ? 0 : 1)
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {tipoUsuario !== "proveedor" && (
         <TouchableOpacity
           onPress={handleOpenProviderForm}
-          className="absolute top-20 right-4 z-10 bg-[#E8F4FB] rounded-full px-4 py-2 flex-row items-center"
+          className="absolute top-16 right-4 z-10 bg-[#E8F4FB] rounded-full px-4 py-2 flex-row items-center"
         >
           <Text className="text-[#77BEEA] text-sm font-JakartaSemiBold mr-1">
             Ser proveedor
           </Text>
           <Ionicons name="arrow-forward-circle" size={18} color="#77BEEA" />
+        </TouchableOpacity>
+      )}
+
+      {tipoUsuario === "proveedor" && (
+        <TouchableOpacity
+          onPress={toggleMenu}
+          className={`absolute top-16 right-4 z-10 bg-[#E8F4FB] rounded-full ${
+            isMenuOpen ? "p-2" : "px-4 py-2"
+          } flex-row items-center`}
+        >
+          {!isMenuOpen && (
+            <Text className="text-[#77BEEA] text-sm font-JakartaSemiBold mr-1">
+              Panel de Proveedor
+            </Text>
+          )}
+          <Ionicons
+            name={isMenuOpen ? "close-circle" : "menu"}
+            size={isMenuOpen ? 30 : 18}
+            color={isMenuOpen ? "#333" : "#77BEEA"}
+          />
         </TouchableOpacity>
       )}
 
@@ -236,7 +266,7 @@ const Profile = () => {
             />
           </View>
 
-          <View className="mt-8 mb-10">
+          <View className="mt-4 mb-10">
             <TouchableOpacity
               onPress={handleSaveProfile}
               className="w-full bg-[#77BEEA] rounded-2xl shadow-sm shadow-[#77BEEA]/30 mb-4"
@@ -248,20 +278,6 @@ const Profile = () => {
                 </Text>
               </View>
             </TouchableOpacity>
-
-            {tipoUsuario === "proveedor" && (
-              <TouchableOpacity
-                onPress={() => router.push("/(root)/management")}
-                className="w-full bg-[#77BEEA]/10 rounded-2xl mb-8"
-              >
-                <View className="flex-row items-center justify-center py-4">
-                  <Ionicons name="cube-outline" size={22} color="#77BEEA" />
-                  <Text className="text-[#77BEEA] text-base font-JakartaBold ml-3">
-                    Gestionar Productos
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </KeyboardAwareScrollView>
@@ -294,6 +310,17 @@ const Profile = () => {
             </View>
           </KeyboardAvoidingView>
         </Modal>
+      )}
+
+      {tipoUsuario === "proveedor" && (
+        <ProviderSidebar
+          isOpen={isMenuOpen}
+          menuAnimation={menuAnimation}
+          onClose={() => {
+            setIsMenuOpen(false)
+            menuAnimation.value = withSpring(0)
+          }}
+        />
       )}
     </SafeAreaView>
   )

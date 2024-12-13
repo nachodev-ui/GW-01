@@ -6,6 +6,7 @@ import { db } from "@/firebaseConfig"
 
 import { TextInputProps, TouchableOpacityProps } from "react-native"
 import { CartProduct } from "@/services/cart/cart.store"
+import { CardDetail } from "@/services/transbank/tbk.store"
 
 interface ProductStore {
   products: Product[]
@@ -33,42 +34,24 @@ declare interface Mensaje {
   nombreRemitente?: string
 }
 
-declare interface Driver {
-  id: number
-  first_name: string
-  last_name: string
-  profile_image_url: string
-  car_image_url: string
-  car_seats: number
-  rating: number
+declare interface DeliveryZone {
+  radius: number
+  location: {
+    latitude: number
+    longitude: number
+  }
+  activeZones?: Array<{
+    latitude: number
+    longitude: number
+    weight: number
+  }>
 }
-
 declare interface MapProps {
   destinationLatitude?: number
   destinationLongitude?: number
   onDriverTimesCalculated?: (driversWithTimes: MarkerData[]) => void
   selectedDriver?: number | null
   onMapReady?: () => void
-}
-
-declare interface Ride {
-  origin_address: string
-  destination_address: string
-  origin_latitude: number
-  origin_longitude: number
-  destination_latitude: number
-  destination_longitude: number
-  ride_time: number
-  fare_price: number
-  payment_status: string
-  driver_id: number
-  user_id: string
-  created_at: string
-  driver: {
-    first_name: string
-    last_name: string
-    car_seats: number
-  }
 }
 
 declare interface ButtonProps extends TouchableOpacityProps {
@@ -201,7 +184,8 @@ declare interface UserStore {
     lastName: string | undefined
     phone: string | undefined
   }) => void
-
+  updateUser: (updatedFields: Partial<UserStore["user"]>) => void
+  isProviderAvailable: () => boolean
   addProviderFields: (providerData: {
     patente: string
     distribuidora: string
@@ -227,11 +211,15 @@ declare interface LocationState {
   providersLocations: Array<{
     address: string
     id: string
+    nombreConductor?: string
+    estado?: "disponible" | "no_disponible"
     latitude: number
     longitude: number
   }>
   selectedProviderLocation: {
     id: string
+    nombreConductor?: string
+    estado?: "disponible" | "no_disponible"
     latitude: number
     longitude: number
     address?: string // Dirección del proveedor seleccionado (opcional)
@@ -244,6 +232,8 @@ declare interface LocationState {
   setProvidersLocations: (
     locations: Array<{
       id: string
+      nombreConductor?: string
+      estado?: "disponible" | "no_disponible"
       latitude: number
       longitude: number
       address?: string
@@ -251,11 +241,31 @@ declare interface LocationState {
   ) => void
   setSelectedProviderLocation: (location: {
     id: string
+    nombreConductor?: string
+    estado?: "disponible" | "no_disponible"
     latitude: number
     longitude: number
     address?: string
   }) => void
   clearSelectedProviderLocation: () => void
+}
+
+declare interface TransbankPayment {
+  id: string
+  pedidoId: string
+  timestamp: Date
+  amount: number
+  status: string
+  vci: string
+  buy_order: string
+  session_id: string
+  card_detail: CardDetail
+  transaction_date: string
+  authorization_code: string
+  payment_type_code: string
+  response_code: number
+  installments_number: number
+  token_ws: string
 }
 
 declare interface TransactionData {
@@ -269,6 +279,7 @@ interface Pedido {
   clienteId: string
   nombreCliente: string
   conductorId: string
+  nombreConductor?: string
   ubicacionProveedor: {
     address: string
     latitude: number
@@ -303,18 +314,6 @@ declare interface PedidoState {
   fetchPedidosStore: () => Promise<void>
   fetchPedidosByUserType: () => Promise<void>
   initializePedidosListener: (userId: string) => () => void
-}
-declare interface DriverStore {
-  drivers: MarkerData[]
-  selectedDriver: number | null
-  setSelectedDriver: (driverId: number) => void
-  setDrivers: (drivers: MarkerData[]) => void
-  clearSelectedDriver: () => void
-}
-declare interface DriverCardProps {
-  item: MarkerData
-  selected: number
-  setSelected: () => void
 }
 
 declare interface AuthStore {

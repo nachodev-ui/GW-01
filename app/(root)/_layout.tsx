@@ -65,6 +65,12 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="delivery-zone"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   )
 }

@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, Image, TouchableOpacity } from "react-native"
 import { useTransactionStore } from "@/services/transbank/tbk.store"
 import { formatDate, formatToChileanPesos } from "@/lib/utils"
-import { usePedidoStore } from "@/store"
+import { usePedidoStore, useUserStore } from "@/store"
 import { router } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import PedidoRechazado from "./PedidoRechazado"
@@ -10,6 +10,7 @@ import { useEffect, useState } from "react"
 
 const OrderReceipt = () => {
   const { transaction } = useTransactionStore((state) => state)
+  const { user } = useUserStore((state) => state)
   const { pedidoActual, hasRedirected, setHasRedirected } = usePedidoStore(
     (state) => state
   )
@@ -47,6 +48,15 @@ const OrderReceipt = () => {
     return <PedidoRechazado />
   }
 
+  const handleChatPress = () => {
+    if (pedidoActual) {
+      router.push({
+        pathname: "/(root)/chat-screen",
+        params: { pedidoId: pedidoActual.id, remitenteId: user?.id },
+      })
+    }
+  }
+
   const getEstadoStyle = (estado: string) => {
     switch (estado) {
       case "Aceptado":
@@ -59,101 +69,137 @@ const OrderReceipt = () => {
   }
 
   return (
-    <ScrollView className="flex-1">
-      <View className="bg-white rounded-lg shadow-lg mx-4 my-8">
-        <View className="h-4 overflow-hidden">
-          <View className="flex-row">
-            {[...Array(20)].map((_, i) => (
-              <View
-                key={i}
-                className="w-4 h-4 bg-white rounded-full -mb-2"
-                style={{ transform: [{ rotate: "45deg" }] }}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View className="p-6">
+    <ScrollView className="flex-1 bg-neutral-50">
+      <View className="bg-white rounded-2xl shadow-sm mx-4 my-6">
+        {/* Header con diseño mejorado */}
+        <View className="p-6 border-b border-neutral-100">
           <View className="items-center">
-            <View className="bg-[#77BEEA]/10 rounded-full p-3 mb-4">
-              <Ionicons name="receipt-outline" size={24} color="#77BEEA" />
+            <View className="bg-[#77BEEA]/10 rounded-full p-4 mb-4">
+              <Ionicons name="receipt-outline" size={28} color="#77BEEA" />
             </View>
-            <Text className="text-2xl font-JakartaBold text-neutral-800 text-center">
+            <Text className="text-2xl font-JakartaBold text-neutral-800">
               Pedido Confirmado
             </Text>
-            <Text className="text-neutral-500 font-Jakarta mt-2">
-              Orden #{transaction.buy_order}
-            </Text>
-            <Text className="text-neutral-500 font-Jakarta mt-1">
-              {formatDate(transaction.transaction_date)}
-            </Text>
+            <View className="flex-col items-center space-y-2 mt-3">
+              <Text className="text-neutral-500 font-JakartaMedium">
+                Orden #{transaction.buy_order}
+              </Text>
+              <Text className="text-neutral-500 font-JakartaMedium">
+                {formatDate(transaction.transaction_date)}
+              </Text>
+            </View>
           </View>
         </View>
 
-        <ScrollView className="px-6" style={{ maxHeight: 350 }}>
-          <View className="bg-neutral-50 p-4 rounded-lg mb-4 border border-neutral-100">
-            <Text className="text-lg font-JakartaBold text-neutral-700 mb-2">
-              Estado del Pedido:{" "}
-              <Text className={getEstadoStyle(pedidoActual?.estado || "")}>
-                {pedidoActual?.estado}
+        <ScrollView className="px-6 py-4" style={{ maxHeight: 350 }}>
+          {/* Estado del pedido con diseño mejorado */}
+          <View className="bg-white rounded-xl mb-4 border border-neutral-100 shadow-sm">
+            <View className="p-4">
+              <Text className="text-lg font-JakartaBold text-neutral-700">
+                Estado del Pedido:{" "}
+                <Text className={getEstadoStyle(pedidoActual?.estado || "")}>
+                  {pedidoActual?.estado}
+                </Text>
               </Text>
-            </Text>
-            <Text className="font-Jakarta text-neutral-600">
-              Proveedor: {pedidoActual?.conductorId || "Buscando proveedor..."}
-            </Text>
+            </View>
 
             {pedidoActual?.estado === "Pendiente" && (
-              <View className="mt-3 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                <View className="flex-row items-center space-x-2">
-                  <View className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                  <Text className="text-sm font-JakartaMedium text-yellow-700">
-                    Esperando confirmación del proveedor
+              <View className="mx-4 mb-4 bg-yellow-50/50 p-4 rounded-xl border border-yellow-100">
+                <View className="flex-row items-center space-x-3">
+                  <View className="w-2.5 h-2.5 bg-yellow-400 rounded-full animate-pulse" />
+                  <Text className="text-sm font-JakartaSemiBold text-yellow-700">
+                    Esperando confirmación
                   </Text>
                 </View>
-                <Text className="text-xs text-yellow-600 mt-1">
+                <Text className="text-xs font-JakartaMedium text-yellow-600 mt-2 leading-4">
                   Te notificaremos cuando el proveedor acepte tu pedido
                 </Text>
               </View>
             )}
+
+            {pedidoActual?.estado === "Aceptado" && (
+              <View className="mx-4 mb-4 bg-green-50/50 p-4 rounded-xl border border-green-100">
+                <View className="flex-row items-center space-x-3">
+                  <View className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse" />
+                  <Text className="text-sm font-JakartaSemiBold text-green-700">
+                    ¡Tu gas está en camino!
+                  </Text>
+                </View>
+                <Text className="text-xs font-JakartaMedium text-green-600 mt-2 leading-4">
+                  Sigue el recorrido de tu pedido en tiempo real
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(root)/tracking",
+                      params: { pedidoId: pedidoActual?.id },
+                    })
+                  }
+                  className="mt-3 bg-green-600 py-3 rounded-lg flex-row items-center justify-center space-x-2"
+                >
+                  <Ionicons name="location" size={18} color="white" />
+                  <Text className="text-white text-sm font-JakartaBold">
+                    Seguir Pedido
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
-          <View className="flex-row items-center justify-between bg-gray-100 rounded-md shadow-sm p-3">
-            <Text className="text-lg font-semibold text-gray-800">
-              {pedidoActual?.producto?.map((product, index) => (
-                <View key={index} className="flex-row items-center space-x-4">
-                  <Image
-                    source={getProductImage(
-                      product.product.marca,
-                      product.product.formato
-                    )}
-                    className="w-16 h-16 rounded-md"
-                    resizeMode="contain"
-                  />
-                  <View>
-                    <Text className="text-lg font-JakartaSemiBold text-gray-800">
-                      {product.product.nombre}
-                    </Text>
-                    <Text className="text-sm font-Jakarta text-gray-600">
-                      {formatToChileanPesos(product.product.precio)} c/u x{" "}
+          {/* Productos con diseño mejorado */}
+          <View className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4 mb-4">
+            <Text className="font-JakartaBold text-neutral-700 mb-3">
+              Productos
+            </Text>
+            {pedidoActual?.producto?.map((product, index) => (
+              <View
+                key={index}
+                className="flex-row items-center space-x-4 bg-neutral-50/80 p-3 rounded-xl mb-2"
+              >
+                <Image
+                  source={getProductImage(
+                    product.product.marca,
+                    product.product.formato
+                  )}
+                  className="w-16 h-16 rounded-lg"
+                  resizeMode="contain"
+                />
+                <View className="flex-1">
+                  <Text className="text-base font-JakartaSemiBold text-neutral-800">
+                    {product.product.nombre}
+                  </Text>
+                  <View className="flex-row items-center justify-between mt-1">
+                    <Text className="text-sm font-Jakarta text-neutral-500">
+                      {formatToChileanPesos(product.product.precio)} ×{" "}
                       {product.quantity}
+                    </Text>
+                    <Text className="text-sm font-JakartaBold text-[#77BEEA]">
+                      {formatToChileanPesos(
+                        product.product.precio * product.quantity
+                      )}
                     </Text>
                   </View>
                 </View>
-              ))}
-            </Text>
+              </View>
+            ))}
           </View>
 
-          <View className="bg-gray-50 p-4 rounded-lg">
-            <Text className="font-JakartaBold text-gray-800 mb-2">
-              Dirección de entrega:
+          {/* Dirección con diseño mejorado */}
+          <View className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4 mb-2">
+            <Text className="font-JakartaBold text-neutral-700 mb-2">
+              Dirección de entrega
             </Text>
-            <Text className="font-Jakarta text-gray-600">
-              {pedidoActual?.ubicacionCliente.address}
-            </Text>
+            <View className="flex-row items-start space-x-3">
+              <Ionicons name="location-outline" size={20} color="#77BEEA" />
+              <Text className="flex-1 font-JakartaMedium text-neutral-600 text-sm leading-5">
+                {pedidoActual?.ubicacionCliente.address}
+              </Text>
+            </View>
           </View>
         </ScrollView>
 
-        <View className="border-t border-gray-200 p-6">
+        {/* Footer con diseño mejorado */}
+        <View className="border-t border-neutral-100 p-6 mt-4">
           <View className="flex-row justify-between mb-4">
             <Text className="font-JakartaBold text-lg text-neutral-800">
               Total
@@ -166,25 +212,10 @@ const OrderReceipt = () => {
           <View className="space-y-3">
             <TouchableOpacity
               className="bg-[#77BEEA] flex-row items-center justify-center rounded-xl py-3.5"
-              onPress={() =>
-                router.push({
-                  pathname: "/(root)/tracking",
-                  params: { pedidoId: pedidoActual?.id },
-                })
-              }
+              onPress={handleChatPress}
             >
-              <Ionicons name="location-outline" size={20} color="white" />
+              <Ionicons name="chatbubble-outline" size={20} color="white" />
               <Text className="text-white ml-2 font-JakartaBold">
-                Seguir Pedido
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="bg-[#77BEEA]/10 border border-[#77BEEA]/20 flex-row items-center justify-center rounded-xl py-3.5"
-              onPress={() => router.push("/(root)/chat-screen")}
-            >
-              <Ionicons name="chatbubble-outline" size={20} color="#77BEEA" />
-              <Text className="text-[#77BEEA] ml-2 font-JakartaBold">
                 Chatear con Proveedor
               </Text>
             </TouchableOpacity>

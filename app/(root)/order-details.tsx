@@ -9,19 +9,20 @@ import { Ionicons } from "@expo/vector-icons"
 const OrderDetails = () => {
   const { pedidoActual } = usePedidoStore()
 
-  if (!pedidoActual) return null
+  if (!pedidoActual) {
+    router.replace("/")
+    return null
+  }
+
+  const handleGoHome = () => {
+    router.replace("/")
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#F8FBFD]">
       {/* Header */}
       <View className="bg-white/80 backdrop-blur-lg border-b border-[#E8F4FB]">
         <View className="flex-row items-center px-5 py-4">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="bg-[#E8F4FB] w-10 h-10 rounded-full items-center justify-center"
-          >
-            <Ionicons name="arrow-back" size={20} color="#77BEEA" />
-          </TouchableOpacity>
           <Text className="ml-4 text-lg font-JakartaBold text-[#2B5F7E]">
             Detalles del Pedido
           </Text>
@@ -36,7 +37,10 @@ const OrderDetails = () => {
               <Ionicons name="checkmark-circle" size={32} color="#77BEEA" />
             </View>
             <Text className="text-2xl font-JakartaBold text-[#2B5F7E] mb-1">
-              Pedido {pedidoActual.estado}
+              Pedido{" "}
+              {pedidoActual.estado === "Llegado"
+                ? "Entregado"
+                : pedidoActual.estado}
             </Text>
             <Text className="text-[#77BEEA] font-JakartaMedium">
               #{pedidoActual.id.slice(-6)}
@@ -98,13 +102,26 @@ const OrderDetails = () => {
             </View>
             <View className="flex-1">
               <Text className="font-JakartaBold text-[#2B5F7E]">
-                {pedidoActual.conductorId}
+                {pedidoActual.nombreConductor}
               </Text>
               <Text className="font-JakartaMedium text-[#77BEEA]">
                 Proveedor
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* Botón de volver al inicio */}
+        <View className="px-4 pb-6">
+          <TouchableOpacity
+            onPress={handleGoHome}
+            className="bg-[#77BEEA] py-4 rounded-xl flex-row items-center justify-center"
+          >
+            <Ionicons name="home-outline" size={20} color="white" />
+            <Text className="text-white font-JakartaBold ml-2">
+              Volver al inicio
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

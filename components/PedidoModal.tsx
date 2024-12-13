@@ -18,7 +18,7 @@ interface PedidoModalProps {
 }
 
 const PedidoModal = ({ visible, onClose, pedido }: PedidoModalProps) => {
-  const { pedidoActual, setPedidoActual } = usePedidoStore()
+  const { pedidoActual, setPedidoActual, clearPedidoActual } = usePedidoStore()
   const { user } = useUserStore()
 
   const isProveedor = user?.tipoUsuario === "proveedor"
@@ -77,6 +77,7 @@ const PedidoModal = ({ visible, onClose, pedido }: PedidoModalProps) => {
       await updateDoc(pedidoRef, {
         estado: "Rechazado",
       })
+      clearPedidoActual()
 
       await handleNotificarPedidoRechazado(pedidoDoc.data().clienteId)
     } catch (error) {

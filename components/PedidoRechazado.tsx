@@ -11,7 +11,6 @@ const StyledText = styled(Text)
 const PedidoRechazado = () => {
   const { pedidoActual } = usePedidoStore()
   const { user } = useUserStore()
-  const isClient = user?.tipoUsuario === "usuario"
 
   useEffect(() => {
     console.log("(DEBUG - PedidoRechazado) Estado del usuario:", {

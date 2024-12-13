@@ -42,6 +42,16 @@ import * as ImagePicker from "expo-image-picker"
 import axios from "axios"
 import { Alert } from "react-native"
 import { formatToChileanPesos } from "@/lib/utils"
+import { useTransactionStore } from "@/services/transbank/tbk.store"
+
+const isProviderAvailable = (user: UserStore["user"]) => {
+  if (!user) return false
+  return (
+    user?.tipoUsuario === "proveedor" &&
+    user?.estado in user &&
+    user.estado === "disponible"
+  )
+}
 
 export const useUserStore = create<UserStore>((set, get) => ({
   user: null,
@@ -106,6 +116,20 @@ export const useUserStore = create<UserStore>((set, get) => ({
       ...updatedData,
       phoneError: "",
     }))
+  },
+
+  updateUser: (updatedFields: Partial<UserStore["user"]>) => {
+    set((state) => ({
+      ...state,
+      user: state.user
+        ? { ...state.user, ...(updatedFields as typeof state.user) }
+        : null,
+    }))
+  },
+
+  isProviderAvailable: () => {
+    const { user } = get()
+    return isProviderAvailable(user)
   },
 
   addProviderFields: async (providerData: {
@@ -217,37 +241,73 @@ export const useUserStore = create<UserStore>((set, get) => ({
         longitude,
       })
 
+      let address = "Ubicación desconocida"
+
       if (locationData) {
-        const address = `${locationData.street || ""} ${locationData.streetNumber}, ${locationData.city || ""}`
+        const components = [
+          locationData.street,
+          locationData.streetNumber,
+          locationData.district,
+          locationData.city,
+          locationData.region,
+        ].filter(Boolean)
 
-        // Guardamos en Firestore
-        await setDoc(
-          doc(db, "userLocations", user.id),
-          {
-            latitude,
-            longitude,
-            address,
-            timestamp: new Date(),
-            userId: user.id,
-          },
-          { merge: true }
-        )
+        address =
+          components.length > 0
+            ? components.join(", ")
+            : `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
 
-        // Actualizamos el estado local
-        useLocationStore.getState().setUserLocation({
-          latitude,
-          longitude,
-          address,
-        })
-
-        console.log("Ubicación guardada exitosamente:", {
-          latitude,
-          longitude,
-          address,
-        })
+        console.log("Datos de ubicación completos:", locationData)
       }
+
+      await setDoc(
+        doc(db, "userLocations", user.id),
+        {
+          latitude,
+          longitude,
+          address,
+          timestamp: new Date(),
+          userId: user.id,
+          rawLocationData: locationData || null,
+        },
+        { merge: true }
+      )
+
+      useLocationStore.getState().setUserLocation({
+        latitude,
+        longitude,
+        address,
+      })
+
+      console.log("(useUserStore) Ubicación guardada:", {
+        latitude,
+        longitude,
+        address,
+        locationData,
+      })
     } catch (error) {
       console.error("Error guardando ubicación:", error)
+
+      const fallbackAddress = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+
+      await setDoc(
+        doc(db, "userLocations", user.id),
+        {
+          latitude,
+          longitude,
+          address: fallbackAddress,
+          timestamp: new Date(),
+          userId: user.id,
+          error: error instanceof Error ? error.message : "Error desconocido",
+        },
+        { merge: true }
+      )
+
+      useLocationStore.getState().setUserLocation({
+        latitude,
+        longitude,
+        address: fallbackAddress,
+      })
     }
   },
 

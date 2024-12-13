@@ -1,4 +1,7 @@
 import { create } from "zustand"
+import { doc, collection, setDoc } from "firebase/firestore"
+import { db } from "@/firebaseConfig"
+import { TransbankPayment } from "@/types/type"
 
 export interface CardDetail {
   card_number: string
@@ -32,6 +35,7 @@ export interface TransbankStore {
   setTransaction: (transaction: TransbankResponse) => void
   setToken: (token: string) => void
   clearTransaction: () => void
+  saveTransbankPayment: (pedidoId: string) => Promise<TransbankPayment | null>
 }
 
 // Objeto inicial de transacción
@@ -85,5 +89,33 @@ export const useTransactionStore = create<TransbankStore>((set, get) => ({
       transaction: initialTransaction,
       token_ws: null,
     })
+  },
+  saveTransbankPayment: async (pedidoId: string) => {
+    const currentTransaction = get().transaction
+    const currentToken = get().token_ws
+
+    if (!currentTransaction || !currentToken) return null
+
+    const paymentRef = doc(collection(db, "transbank_payments"))
+    const payment: TransbankPayment = {
+      id: paymentRef.id,
+      pedidoId,
+      timestamp: new Date(),
+      amount: currentTransaction.amount,
+      status: currentTransaction.status,
+      vci: currentTransaction.vci,
+      buy_order: currentTransaction.buy_order,
+      session_id: currentTransaction.session_id,
+      card_detail: currentTransaction.card_detail,
+      transaction_date: currentTransaction.transaction_date,
+      authorization_code: currentTransaction.authorization_code,
+      payment_type_code: currentTransaction.payment_type_code,
+      response_code: currentTransaction.response_code,
+      installments_number: currentTransaction.installments_number,
+      token_ws: currentToken,
+    }
+
+    await setDoc(paymentRef, payment)
+    return payment
   },
 }))

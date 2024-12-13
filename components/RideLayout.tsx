@@ -43,9 +43,43 @@ const SheetContent = React.memo(
       )
     }
     return (
-      <BottomSheetScrollView style={{ flex: 1, padding: 20 }}>
-        {children}
-      </BottomSheetScrollView>
+      <View style={{ flex: 1 }}>
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+          }}
+        >
+          {/* Aquí irá el header fijo y las notificaciones */}
+          {React.Children.map(children, (child) => {
+            if (
+              React.isValidElement(child) &&
+              child.props.className?.includes("absolute")
+            ) {
+              return child
+            }
+            return null
+          })}
+        </View>
+        <BottomSheetScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingTop: 20 }}
+        >
+          {/* Aquí va el contenido scrolleable */}
+          {React.Children.map(children, (child) => {
+            if (
+              React.isValidElement(child) &&
+              !child.props.className?.includes("absolute")
+            ) {
+              return child
+            }
+            return null
+          })}
+        </BottomSheetScrollView>
+      </View>
     )
   }
 )

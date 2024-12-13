@@ -1,10 +1,13 @@
 import React, { useState } from "react"
-import { Text, View, TouchableOpacity, Alert } from "react-native"
+import { Text, View, TouchableOpacity, BackHandler } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { reloadAsync } from "expo-updates"
 
 import InputField from "@/components/InputField"
 import { ProviderFormProps } from "@/types/type"
 import { validateChileanPhone } from "@/utils/validations"
+import { validateFormFields } from "@/utils/error-handler"
+import { ErrorAlert } from "@/components/ErrorModal"
 
 const ProviderForm = ({
   onCancel,
@@ -23,6 +26,8 @@ const ProviderForm = ({
     initialValues.telefonoFijo || ""
   )
   const [celularError, setCelularError] = useState("")
+  const [errorModalVisible, setErrorModalVisible] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const handleCelularChange = (value: string) => {
     setTelefonoCelular(value)
@@ -30,11 +35,36 @@ const ProviderForm = ({
     setCelularError(validation.error)
   }
 
+  const formatTelefonoFijo = (value: string) => {
+    // Eliminar todos los caracteres que no sean dígitos
+    const cleaned = value.replace(/\D/g, "")
+
+    // Formatear el número
+    const match = cleaned.match(/^(\d{2})(\d{1})(\d{0,4})(\d{0,4})$/)
+    if (match) {
+      return [match[1], match[2], match[3], match[4]].filter(Boolean).join(" ")
+    }
+    return value
+  }
+
+  const handleTelefonoFijoChange = (value: string) => {
+    const formattedValue = formatTelefonoFijo(value)
+    setTelefonoFijo(formattedValue)
+  }
+
   const handleFormSubmit = () => {
-    // Validar celular antes de enviar
-    const celularValidation = validateChileanPhone(telefonoCelular)
-    if (!celularValidation.isValid) {
-      Alert.alert("Error", "Por favor corrige el número de celular")
+    // Validar campos del formulario
+    const validationErrors = validateFormFields({
+      patente,
+      distribuidora,
+      direccion,
+      telefonoCelular,
+      telefonoFijo,
+    })
+
+    if (validationErrors.length > 0) {
+      setErrorMessage(validationErrors.join("\n"))
+      setErrorModalVisible(true)
       return
     }
 
@@ -47,6 +77,10 @@ const ProviderForm = ({
       telefonoCelular,
       telefonoFijo,
     })
+
+    setTimeout(() => {
+      reloadAsync()
+    }, 1000)
   }
 
   return (
@@ -99,10 +133,10 @@ const ProviderForm = ({
       <InputField
         label="Teléfono Fijo (opcional)"
         value={telefonoFijo}
-        onChangeText={setTelefonoFijo}
+        onChangeText={handleTelefonoFijoChange}
         inputStyle="bg-[#F8FBFD]"
         icon={<Ionicons name="call-outline" size={20} color="#77BEEA" />}
-        placeholder="228887777"
+        placeholder="56 2 2345 6789"
         keyboardType="phone-pad"
       />
 
@@ -123,6 +157,12 @@ const ProviderForm = ({
           <Text className="text-white font-JakartaBold ml-2">Registrar</Text>
         </TouchableOpacity>
       </View>
+
+      <ErrorAlert
+        visible={errorModalVisible}
+        message={errorMessage}
+        onClose={() => setErrorModalVisible(false)}
+      />
     </View>
   )
 }
