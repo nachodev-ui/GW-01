@@ -23,7 +23,7 @@
 
 ## ⚡ Características Principales
 
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
+<div style="display: grid; grid-template-rows: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
   <div style="background: #22c55e; color: white; padding: 15px; border-radius: 8px; text-align: center;">
     🔐 Autenticación Segura
   </div>
