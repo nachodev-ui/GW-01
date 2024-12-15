@@ -61,7 +61,7 @@
 
 ## 🛠️ Tech Stack
 
-<div style="display: flex; justify-content: space-around; align-items: center; margin: 20px 0;">
+<div style="display: flex; flex-direction: row; justify-content: space-around; align-items: center; margin: 20px 0;">
   <div style="text-align: center;">
     <img src="https://reactnative.dev/img/header_logo.svg" width="60" style="margin-right: 10px"/>
     <strong>React Native</strong>
