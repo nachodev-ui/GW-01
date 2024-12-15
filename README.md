@@ -1,31 +1,29 @@
-<div style="text-align: center; margin: 20px;">
-  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" 
-       alt="Gasway Logo" 
-       width="180" 
-       height="180" 
-       style="margin: 20px 0; background: #20232a; padding: 20px; border-radius: 50%;" />
+<div align="center">
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/react/react-original.svg" alt="Gasway Logo" width="180" height="180" style="margin: 20px 0; background: #20232a; padding: 20px; border-radius: 50%;"/>
   
-  <h1 style="margin: 10px 0; color: #3b82f6;">Gasway Application</h1>
+  # Gasway Application
   
-  <p><em>Una aplicación móvil full-stack para la distribución de gas</em></p>
+  <p align="center">
+    <em>Una aplicación móvil full-stack para la distribución de gas</em>
+  </p>
 
-  <div style="background: #1a1b1e; padding: 20px; border-radius: 8px; margin: 20px 0; display: flex; justify-content: center; gap: 15px;">
+  <div style="background: #1a1b1e; padding: 20px; border-radius: 8px; margin: 20px 0;">
     <a href="#"><img src="https://img.shields.io/badge/REACT_NATIVE-282c34?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native"/></a>
     <a href="#"><img src="https://img.shields.io/badge/EXPO-000020?style=for-the-badge&logo=expo&logoColor=white" alt="Expo"/></a>
     <a href="#"><img src="https://img.shields.io/badge/TYPESCRIPT-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"/></a>
     <a href="#"><img src="https://img.shields.io/badge/FIREBASE-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"/></a>
   </div>
 
-  <div style="margin: 20px 0; display: flex; justify-content: center; gap: 20px;">
-    <a href="#" style="color: #3b82f6; text-decoration: none;">Documentación</a>
-    <span style="color: #3b82f6;">•</span>
-    <a href="#" style="color: #3b82f6; text-decoration: none;">Reportar Bug</a>
+  <div style="margin: 20px 0;">
+    <a href="#" style="color: #3b82f6; text-decoration: none; margin: 0 10px;">Documentación</a>
+    •
+    <a href="#" style="color: #3b82f6; text-decoration: none; margin: 0 10px;">Reportar Bug</a>
   </div>
 </div>
 
-<h2 style="text-align: center; margin-top: 40px;">⚡ Características Principales</h2>
+## ⚡ Características Principales
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px;">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0;">
   <div style="background: #22c55e; color: white; padding: 15px; border-radius: 8px; text-align: center;">
     🔐 Autenticación Segura
   </div>
