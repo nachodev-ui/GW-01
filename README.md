@@ -61,24 +61,25 @@
 
 ## 🛠️ Tech Stack
 
-<div style="display: flex; flex-direction: row; justify-content: space-around; align-items: center; margin: 20px 0;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-evenly; align-items: center; gap: 20px; margin: 20px 0;">
   <div style="text-align: center;">
-    <img src="https://reactnative.dev/img/header_logo.svg" width="60" style="margin-right: 10px"/>
+    <img src="https://reactnative.dev/img/header_logo.svg" width="60" style="margin-bottom: 10px;" />
     <strong>React Native</strong>
   </div>
   <div style="text-align: center;">
-    <img src="https://www.vectorlogo.zone/logos/firebase/firebase-icon.svg" width="60" style="margin-right: 10px"/>
+    <img src="https://www.vectorlogo.zone/logos/firebase/firebase-icon.svg" width="60" style="margin-bottom: 10px;" />
     <strong>Firebase</strong>
   </div>
   <div style="text-align: center;">
-    <img src="https://www.vectorlogo.zone/logos/google_maps/google_maps-icon.svg" width="60" style="margin-right: 10px"/>
+    <img src="https://www.vectorlogo.zone/logos/google_maps/google_maps-icon.svg" width="60" style="margin-bottom: 10px;" />
     <strong>Google Maps</strong>
   </div>
   <div style="text-align: center;">
-    <img src="https://www.vectorlogo.zone/logos/tailwindcss/tailwindcss-icon.svg" width="60" style="margin-right: 10px"/>
+    <img src="https://www.vectorlogo.zone/logos/tailwindcss/tailwindcss-icon.svg" width="60" style="margin-bottom: 10px;" />
     <strong>Tailwind</strong>
   </div>
 </div>
+
 
 ## 🚀 Quick Start
 
