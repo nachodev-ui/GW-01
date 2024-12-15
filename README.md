@@ -85,8 +85,8 @@
 1. **Clona el repositorio**
 
    ```bash
-   git clone https://github.com/tu-usuario/gas-app.git
-   cd gas-app
+   git clone https://github.com/nachodev-ui/GW-01
+   cd GW-01
    ```
 
 2. **Instala las dependencias**
@@ -126,8 +126,6 @@
    npx expo start
    ```
    - Escanea el código QR con la app Expo Go en tu dispositivo
-   - O presiona 'a' para abrir en Android emulator
-   - O presiona 'i' para abrir en iOS simulator
 
   <p>Desarrollado con ❤️ por <a href="https://linkedin.com/in/ignacio-cisternas-orellana" style="color: #3b82f6; text-decoration: none;">Ignacio Cisternas</a></p>
 </div>
